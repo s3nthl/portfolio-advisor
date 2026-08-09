@@ -1,0 +1,36 @@
+# Secrets & credentials — NEVER commit
+.env
+*.token
+token.json
+schwab_token.json
+
+# Local database snapshots
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Raw account dumps (may contain positions/balances)
+sample_book.json
+
+# Cached Finnhub sector/beta lookups (derived data)
+finnhub_cache.json
+ytd_flows_cache.json
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.DS_Store
+fmp_earnings_cache.json
+fmp_fundamentals_cache.json
+polygon_fund_cache.json
+company_brief_cache.json
+screener_cache.json
+recession/data/
+recession/reports/signals.csv
+*.log
+.claude/

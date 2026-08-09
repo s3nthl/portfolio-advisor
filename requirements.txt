@@ -1,0 +1,11 @@
+fastapi>=0.141
+uvicorn[standard]>=0.52
+schwab-py>=1.5
+python-dotenv>=1.2
+pytest>=9.0
+httpx>=0.28
+# recession monitor (self-contained module)
+pandas>=2.2
+yfinance>=0.2
+matplotlib>=3.8   # dev/analysis only — S3 backtest report, not shipped to the live UI
+pyyaml>=6.0

@@ -1,0 +1,118 @@
+# Recession Monitor — series registry (pure data; add a metric = one block here).
+# transform: level|yoy|mom|3m_ann|4wk_ma|6m_chg|drawdown_from_ath
+# direction: higher_is_worse | lower_is_worse   ·   source: fred | price
+# Section weights, bands and normalization live in config.py (not here).
+
+sections:
+  labor:
+    label: Labor
+    what: "Jobs, hours, and layoffs — the household side of the economy."
+    why: "Labor turns late but decisively. Rising unemployment and jobless claims are among the most reliable recession tells (the Sahm rule is pure labor velocity)."
+  yield_curve:
+    label: Yield curve & rates
+    what: "The shape of Treasury yields and the level of policy rates."
+    why: "An inverted curve (short rates above long) has preceded every modern recession. The bond market pricing cuts is a warning the Fed is too tight."
+  credit:
+    label: Credit & financial conditions
+    what: "Corporate borrowing spreads, bank lending standards, and overall financial stress."
+    why: "Recessions are credit events. When spreads widen and banks tighten, financing dries up and the real economy follows."
+  growth_activity:
+    label: Growth & activity
+    what: "Production, retail sales, and factory orders — the pace of real output."
+    why: "This is the coincident core. Slowing industrial output and orders confirm the cycle is rolling over."
+  housing:
+    label: Housing
+    what: "Building permits, starts, and mortgage rates."
+    why: "Housing leads. Permits and starts fall well before a downturn because construction is the most rate-sensitive part of the economy."
+  inflation:
+    label: Inflation
+    what: "Headline and core consumer prices."
+    why: "Inflation is a regime modifier, not a recession cause. High/accelerating inflation forces the Fed to tighten — which is what tips the cycle."
+  equities:
+    label: Equities & volatility
+    what: "The stock market's drawdown from highs and the VIX."
+    why: "Markets are a fast, noisy leading indicator. Deep drawdowns and spiking volatility often front-run economic weakness."
+  commodities:
+    label: Commodities & energy
+    what: "Oil and natural gas prices."
+    why: "Energy shocks have preceded most postwar recessions — they tax consumers and force the Fed's hand."
+  international:
+    label: International & dollar
+    what: "The trade-weighted US dollar and global funding conditions."
+    why: "A surging dollar tightens conditions worldwide and drains liquidity from risk assets — a global transmission channel."
+
+series:
+  # --- Labor (velocity-weighted section) ---
+  - {id: UNRATE, source: fred, section: labor, subsector: levels, name: Unemployment rate, transform: level, direction: higher_is_worse, weight: 1.0, native_freq: monthly, lag_days: 10, explain: "Unemployment rate. The headline jobless share; rises fast once a downturn starts."}
+  - {id: SAHMREALTIME, source: fred, section: labor, subsector: levels, name: Sahm rule (real-time), transform: level, direction: higher_is_worse, weight: 1.2, native_freq: monthly, lag_days: 10, short: true, explain: "Sahm rule — unemployment's 3-month rise vs its recent low. A 0.5pt jump has flagged every recession since 1970."}
+  - {id: ICSA, source: fred, section: labor, subsector: flows, name: Initial jobless claims, transform: 4wk_ma, direction: higher_is_worse, weight: 1.0, native_freq: weekly, lag_days: 5, explain: "Initial jobless claims (4-week average). The most timely labor read; turns up weeks before payrolls."}
+  - {id: PAYEMS, source: fred, section: labor, subsector: flows, name: Nonfarm payrolls, transform: 3m_ann, direction: lower_is_worse, weight: 1.2, native_freq: monthly, lag_days: 10, explain: "Nonfarm payrolls. Total jobs; scored on its 3-month growth rate — negative growth is a recession hallmark."}
+  - {id: AWHAETP, source: fred, section: labor, subsector: leading, name: Avg weekly hours, transform: yoy, direction: lower_is_worse, weight: 1.0, native_freq: monthly, lag_days: 15, short: true, explain: "Average weekly hours. Employers cut hours before cutting workers — an early softening signal."}
+
+  # --- Yield curve & rates ---
+  - {id: T10Y3M, source: fred, section: yield_curve, subsector: curve, name: 10y–3m spread, transform: level, direction: lower_is_worse, weight: 1.5, native_freq: daily, lag_days: 1, short: true, explain: "10-year minus 3-month Treasury spread. The Fed's preferred curve gauge; negative = inverted = warning."}
+  - {id: T10Y2Y, source: fred, section: yield_curve, subsector: curve, name: 10y–2y spread, transform: level, direction: lower_is_worse, weight: 1.5, native_freq: daily, lag_days: 1, short: true, explain: "10-year minus 2-year spread. The classic recession curve; inverts ahead of downturns."}
+  - {id: DGS10, source: fred, section: yield_curve, subsector: curve, name: 10y Treasury yield, transform: 6m_chg, direction: higher_is_worse, weight: 0.7, native_freq: daily, lag_days: 1, explain: "10-year Treasury yield. Scored on rapid 6-month moves — sharp rate shocks stress the economy."}
+  - {id: DFF, source: fred, section: yield_curve, subsector: policy, name: Fed funds rate, transform: 6m_chg, direction: higher_is_worse, weight: 0.8, native_freq: daily, lag_days: 1, explain: "Fed funds rate. Scored on how fast it's changed — aggressive hiking cycles precede recessions."}
+
+  # --- Credit & financial conditions ---
+  - {id: BAA10Y, source: fred, section: credit, subsector: spreads, name: Baa–10y spread, transform: level, direction: higher_is_worse, weight: 1.2, native_freq: daily, lag_days: 1, short: true, explain: "Baa corporate bond spread over the 10-year. Investment-grade credit stress; widens as default risk rises."}
+  - {id: BAMLH0A0HYM2, source: fred, section: credit, subsector: spreads, name: HY OAS, transform: level, direction: higher_is_worse, weight: 1.2, native_freq: daily, lag_days: 1, short: true, explain: "High-yield credit spread (OAS). Junk-bond risk premium; the sharpest credit-stress tell (short history on FRED)."}
+  - {id: NFCI, source: fred, section: credit, subsector: composite, name: Chicago Fed NFCI, transform: level, direction: higher_is_worse, weight: 1.0, native_freq: weekly, lag_days: 4, short: true, explain: "Chicago Fed National Financial Conditions Index. A broad financial-stress composite; positive = tighter than normal."}
+  - {id: DRTSCILM, source: fred, section: credit, subsector: lending, name: SLOOS C&I tightening, transform: level, direction: higher_is_worse, weight: 1.0, native_freq: quarterly, lag_days: 75, short: true, explain: "SLOOS — share of banks tightening C&I lending standards. When banks pull back, credit-driven slowdowns follow."}
+
+  # --- Growth & activity ---
+  - {id: INDPRO, source: fred, section: growth_activity, subsector: output, name: Industrial production, transform: yoy, direction: lower_is_worse, weight: 1.0, native_freq: monthly, lag_days: 15, explain: "Industrial production (year-over-year). Factory/mining/utility output; contracts in every recession."}
+  - {id: RSAFS, source: fred, section: growth_activity, subsector: consumer, name: Retail sales, transform: yoy, direction: lower_is_worse, weight: 1.0, native_freq: monthly, lag_days: 15, short: true, explain: "Retail sales (year-over-year). Consumer demand in dollars; stalls as households retrench."}
+  - {id: CFNAI, source: fred, section: growth_activity, subsector: output, name: Chicago Fed NAI, transform: level, direction: lower_is_worse, weight: 1.2, native_freq: monthly, lag_days: 25, explain: "Chicago Fed National Activity Index. An 85-indicator growth gauge; below -0.7 signals recession."}
+  - {id: ISRATIO, source: fred, section: growth_activity, subsector: business, name: Inventories/sales, transform: level, direction: higher_is_worse, weight: 0.9, native_freq: monthly, lag_days: 45, short: true, explain: "Inventories-to-sales ratio. Rising means goods are piling up faster than they sell — demand weakening."}
+  - {id: NEWORDER, source: fred, section: growth_activity, subsector: business, name: Core capex orders, transform: yoy, direction: lower_is_worse, weight: 1.0, native_freq: monthly, lag_days: 25, explain: "Core capital-goods orders (year-over-year). Business investment intentions; a clean leading indicator."}
+
+  # --- Housing ---
+  - {id: PERMIT, source: fred, section: housing, subsector: activity, name: Building permits, transform: yoy, direction: lower_is_worse, weight: 1.2, native_freq: monthly, lag_days: 18, explain: "Building permits (year-over-year). Future construction; one of the earliest cyclical turns."}
+  - {id: HOUST, source: fred, section: housing, subsector: activity, name: Housing starts, transform: yoy, direction: lower_is_worse, weight: 1.0, native_freq: monthly, lag_days: 18, explain: "Housing starts (year-over-year). Ground actually broken; rate-sensitive and leading."}
+  - {id: MORTGAGE30US, source: fred, section: housing, subsector: affordability, name: 30y mortgage rate, transform: 6m_chg, direction: higher_is_worse, weight: 0.8, native_freq: weekly, lag_days: 4, short: true, explain: "30-year mortgage rate. Scored on 6-month jumps — rate spikes freeze housing quickly."}
+
+  # --- Inflation (regime modifier) ---
+  - {id: CPIAUCSL, source: fred, section: inflation, subsector: realized, name: CPI, transform: yoy, direction: higher_is_worse, weight: 1.0, native_freq: monthly, lag_days: 15, explain: "Headline CPI (year-over-year). Consumer inflation; high readings force policy tightening."}
+  - {id: CPILFESL, source: fred, section: inflation, subsector: realized, name: Core CPI, transform: yoy, direction: higher_is_worse, weight: 1.0, native_freq: monthly, lag_days: 15, explain: "Core CPI (year-over-year). Ex food & energy; the stickier trend the Fed targets."}
+
+  # --- Equities & volatility ---
+  - {id: "^GSPC", source: price, section: equities, subsector: trend, name: S&P 500, transform: drawdown_from_ath, direction: higher_is_worse, weight: 1.0, native_freq: daily, lag_days: 1, fallback: stooq, explain: "S&P 500 drawdown from its all-time high. How far stocks have fallen from the peak."}
+  - {id: VIXCLS, source: fred, section: equities, subsector: volatility, name: VIX, transform: level, direction: higher_is_worse, weight: 0.9, native_freq: daily, lag_days: 1, short: true, explain: "VIX — the market's expected 30-day volatility. Spikes signal fear and stress."}
+
+  # ===== FRED-only expansion batch (S10, no scrapers) =====
+  # --- Labor (deeper) ---
+  - {id: U6RATE, source: fred, section: labor, subsector: levels, name: U-6 underemployment, transform: level, direction: higher_is_worse, weight: 0.8, native_freq: monthly, lag_days: 10, short: true, explain: "U-6 underemployment — includes discouraged and part-time-for-economic-reasons workers. A broader slack gauge than the headline rate."}
+  - {id: CCSA, source: fred, section: labor, subsector: flows, name: Continued claims, transform: yoy, direction: higher_is_worse, weight: 0.9, native_freq: weekly, lag_days: 5, explain: "Continued jobless claims — people still collecting benefits. Rising means the unemployed aren't finding new work."}
+  - {id: TEMPHELPS, source: fred, section: labor, subsector: leading, name: Temp-help jobs, transform: yoy, direction: lower_is_worse, weight: 1.0, native_freq: monthly, lag_days: 10, short: true, explain: "Temporary-help employment. Firms cut temps first, so it leads the broader jobs cycle."}
+
+  # --- Rates & policy (deeper) ---
+  - {id: DFII10, source: fred, section: yield_curve, subsector: real, name: 10y real yield, transform: 6m_chg, direction: higher_is_worse, weight: 0.7, native_freq: daily, lag_days: 1, short: true, explain: "10-year TIPS (inflation-protected) yield — the real cost of money. Sharp rises tighten financial conditions."}
+  - {id: WALCL, source: fred, section: yield_curve, subsector: policy, name: Fed balance sheet, transform: yoy, direction: lower_is_worse, weight: 0.6, native_freq: weekly, lag_days: 7, short: true, explain: "Total Fed assets. Shrinking (QT) drains liquidity; a year-over-year contraction is a tightening headwind."}
+
+  # --- Credit (deeper) ---
+  - {id: BAMLC0A0CM, source: fred, section: credit, subsector: spreads, name: IG corporate OAS, transform: level, direction: higher_is_worse, weight: 1.0, native_freq: daily, lag_days: 1, short: true, explain: "Investment-grade corporate bond spread. Widening = investors demanding more for default risk up the quality curve."}
+  - {id: DRCCLACBS, source: fred, section: credit, subsector: delinquency, name: Credit-card delinquency, transform: level, direction: higher_is_worse, weight: 0.9, native_freq: quarterly, lag_days: 60, short: true, explain: "Credit-card delinquency rate. Where consumer stress shows up first — households missing payments."}
+  - {id: ANFCI, source: fred, section: credit, subsector: composite, name: Adjusted NFCI, transform: level, direction: higher_is_worse, weight: 0.9, native_freq: weekly, lag_days: 4, short: true, explain: "Adjusted National Financial Conditions Index — financial stress stripped of the normal business-cycle component."}
+
+  # --- Growth & activity (deeper) ---
+  - {id: TCU, source: fred, section: growth_activity, subsector: output, name: Capacity utilization, transform: level, direction: lower_is_worse, weight: 1.0, native_freq: monthly, lag_days: 15, explain: "Capacity utilization — how hard factories are running. Falling utilization signals slowing demand."}
+  - {id: PSAVERT, source: fred, section: growth_activity, subsector: consumer, name: Personal savings rate, transform: level, direction: higher_is_worse, weight: 0.7, native_freq: monthly, lag_days: 30, explain: "Personal savings rate. A jump often means consumers turning cautious and pulling back on spending."}
+  - {id: CP, source: fred, section: growth_activity, subsector: business, name: Corporate profits, transform: yoy, direction: lower_is_worse, weight: 0.9, native_freq: quarterly, lag_days: 85, explain: "Corporate profits (year-over-year). Falling profits lead layoffs and capex cuts — an earnings-recession tell."}
+
+  # --- Housing (deeper) ---
+  - {id: HSN1F, source: fred, section: housing, subsector: activity, name: New home sales, transform: yoy, direction: lower_is_worse, weight: 1.0, native_freq: monthly, lag_days: 25, explain: "New single-family home sales (year-over-year). Rate-sensitive demand; turns down early in a slowdown."}
+  - {id: MSACSR, source: fred, section: housing, subsector: activity, name: Months' supply, transform: level, direction: higher_is_worse, weight: 0.9, native_freq: monthly, lag_days: 25, explain: "Months' supply of new homes. Rising inventory vs sales means demand is cooling faster than builders expected."}
+  - {id: CSUSHPINSA, source: fred, section: housing, subsector: prices, name: Case-Shiller home prices, transform: yoy, direction: lower_is_worse, weight: 0.8, native_freq: monthly, lag_days: 60, short: true, explain: "Case-Shiller national home price index (year-over-year). Falling prices erode the wealth effect and mortgage credit."}
+
+  # --- Inflation (deeper) ---
+  - {id: PCEPILFE, source: fred, section: inflation, subsector: realized, name: Core PCE, transform: yoy, direction: higher_is_worse, weight: 1.0, native_freq: monthly, lag_days: 28, explain: "Core PCE (year-over-year) — the Fed's primary inflation target. Drives the tightening that ends cycles."}
+  - {id: T10YIE, source: fred, section: inflation, subsector: expectations, name: 10y breakeven, transform: level, direction: higher_is_worse, weight: 0.7, native_freq: daily, lag_days: 1, short: true, explain: "10-year breakeven inflation — the bond market's expected inflation. Un-anchoring forces a harder Fed response."}
+
+  # --- Commodities & energy (new section) ---
+  - {id: DCOILWTICO, source: fred, section: commodities, subsector: energy, name: WTI crude oil, transform: 6m_chg, direction: higher_is_worse, weight: 1.2, native_freq: daily, lag_days: 4, explain: "WTI crude oil. Scored on 6-month spikes — oil shocks tax consumers and have preceded most postwar recessions."}
+  - {id: DHHNGSP, source: fred, section: commodities, subsector: energy, name: Natural gas (Henry Hub), transform: 6m_chg, direction: higher_is_worse, weight: 0.8, native_freq: daily, lag_days: 4, short: true, explain: "Henry Hub natural gas. Energy-cost pressure on households and industry; sharp spikes squeeze real incomes."}
+
+  # --- International & dollar (new section) ---
+  - {id: DTWEXBGS, source: fred, section: international, subsector: dollar, name: Broad US dollar, transform: 6m_chg, direction: higher_is_worse, weight: 1.2, native_freq: daily, lag_days: 1, short: true, explain: "Trade-weighted broad US dollar. A rapid surge tightens global conditions and drains liquidity from risk assets."}

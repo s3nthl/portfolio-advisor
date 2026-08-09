@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Macro Monitor — recession & market-risk</title>
+<style>
+  @import url('https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@500,700,800&f[]=general-sans@400,500,600,700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+  :root{
+    --bg:#080b11; --panel:#0f141d; --panel2:#121826; --panel3:#161d2b;
+    --hairline:#1e2634; --hairline2:#2a3547; --txt:#e6e9ef; --muted:#8a94a6; --dim:#5a6577;
+    --pos:#40c46a; --neg:#f2695f; --accent:#5b97f5; --accent2:#3fc8c0; --hibeta:#e3ab4f; --tieragg:#f0913a;
+    --sans:"General Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --display:"Cabinet Grotesk","General Sans",sans-serif;
+    --mono:"IBM Plex Mono","SF Mono",ui-monospace,Menlo,monospace;
+    --r:16px; --sh:0 1px 3px rgba(0,0,0,.4);
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:radial-gradient(1200px 500px at 70% -10%,rgba(63,200,192,.05),transparent),var(--bg);
+    color:var(--txt);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none} .muted{color:var(--muted)} .mono{font-family:var(--mono)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 22px 80px}
+  /* top bar */
+  .top{display:flex;align-items:center;gap:14px;padding:20px 22px;max-width:1180px;margin:0 auto}
+  .brand{font-family:var(--mono);font-weight:700;letter-spacing:.5px;font-size:15px}
+  .brand b{color:var(--accent2)}
+  .top .sp{flex:1}
+  .top .asof{font-size:12px;color:var(--muted);font-family:var(--mono)}
+  .btn{font-family:var(--sans);font-size:12.5px;font-weight:600;color:var(--txt);background:var(--panel2);
+    border:1px solid var(--hairline2);border-radius:10px;padding:7px 13px;cursor:pointer;transition:.15s}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  h2.sec{font-family:var(--display);font-weight:700;font-size:23px;letter-spacing:-.02em;margin:52px 0 3px;
+    display:flex;align-items:center;gap:11px}
+  h2.sec::before{content:"";width:22px;height:2px;border-radius:2px;background:linear-gradient(90deg,var(--accent2),transparent)}
+  .sec-sub{color:var(--muted);font-size:13px;margin:0 0 20px 33px;max-width:760px}
+  /* floating panels — soft shadow, whisper-thin border, not hard boxes */
+  .card{background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,.006) 60%),var(--panel);
+    border:1px solid rgba(255,255,255,.055);border-radius:20px;box-shadow:0 10px 34px rgba(0,0,0,.32)}
+  /* hero — slim, borderless, editorial */
+  .hero{display:flex;gap:34px;align-items:center;flex-wrap:wrap;padding:8px 6px 20px;margin-top:6px;
+    border-bottom:1px solid var(--hairline);position:relative}
+  .gaugebox{flex:0 0 auto;width:230px;text-align:center;position:relative}
+  .gaugebox::after{content:"";position:absolute;inset:6% 14% 34%;border-radius:50%;
+    background:radial-gradient(circle,rgba(63,200,192,.10),transparent 68%);z-index:-1}
+  .gaugebox svg{width:230px;height:auto}
+  .gband{font-family:var(--mono);font-weight:800;font-size:13px;letter-spacing:1px;margin-top:-8px;text-transform:uppercase}
+  .herohd{flex:1;min-width:340px}
+  .kick{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);font-weight:600}
+  .summary{font-family:var(--display);font-weight:500;font-size:22px;line-height:1.3;letter-spacing:-.02em;margin:8px 0 12px}
+  .summary b{font-weight:800}
+  .heromChips{display:flex;gap:20px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+  .heromChips b{font-family:var(--mono);color:var(--txt)}
+  .delta{font-family:var(--mono);font-weight:700}
+  /* history range control */
+  .histctl{display:flex;align-items:center;gap:16px;margin:0 0 12px;flex-wrap:wrap}
+  .histfrom{font-size:13px;color:var(--muted)}.histfrom b{color:var(--txt);font-family:var(--mono);font-size:14px}
+  #histslider{flex:1;min-width:200px;-webkit-appearance:none;appearance:none;height:5px;border-radius:4px;
+    background:linear-gradient(90deg,var(--hairline2),var(--accent2));outline:none;cursor:pointer}
+  #histslider::-webkit-slider-thumb{-webkit-appearance:none;width:17px;height:17px;border-radius:50%;
+    background:#fff;border:3px solid var(--accent2);cursor:grab;box-shadow:0 2px 6px rgba(0,0,0,.5)}
+  #histslider::-moz-range-thumb{width:17px;height:17px;border-radius:50%;background:#fff;border:3px solid var(--accent2);cursor:grab}
+  .histpre{display:flex;gap:6px}
+  .histpre button{font-family:var(--mono);font-size:11px;color:var(--muted);background:transparent;
+    border:1px solid var(--hairline);border-radius:8px;padding:4px 10px;cursor:pointer;transition:.12s}
+  .histpre button:hover{color:var(--accent2);border-color:var(--accent2)}
+  /* history — clean, no frame */
+  .histwrap{padding:20px 8px 8px}
+  .histwrap svg{width:100%;height:auto;display:block}
+  /* Fed path & policy regime */
+  .fedcard{padding:16px 24px;margin-top:22px}
+  .fedbar{width:100%;background:none;border:0;padding:0;cursor:pointer;color:inherit;display:flex;align-items:center;gap:16px;text-align:left}
+  .fedbar .grow{flex:1}
+  .fedchev{color:var(--muted);font-size:16px;transition:transform .25s}
+  .fedcard.open .fedchev{transform:rotate(180deg)}
+  .fedbody{display:none;margin-top:4px}
+  .fedcard.open .fedbody{display:block}
+  .fedcur{font-size:13px;color:var(--muted);margin-top:4px}.fedcur b{color:var(--txt);font-family:var(--mono)}
+  .fedbadge{font-family:var(--mono);font-weight:800;font-size:17px;letter-spacing:1px;border:1px solid;border-radius:12px;padding:7px 16px;white-space:nowrap}
+  .fedimplied{font-family:var(--display);font-size:19px;font-weight:500;letter-spacing:-.01em;margin:14px 0 4px}
+  .fedchips{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0 4px}
+  .fedchip{border:1px solid var(--hairline);border-radius:12px;padding:11px 14px;background:rgba(255,255,255,.015)}
+  .fedchip .fh{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+  .fedchip .fr{font-family:var(--display);font-size:21px;font-weight:700;margin-top:3px}
+  .fedchip .fc{font-family:var(--mono);font-size:12px;font-weight:700;margin-top:1px}
+  .fedmeets{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}
+  .fedmeet{flex:0 0 auto;width:74px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
+  .fedmeet.tent{opacity:.5}
+  .fedmeet .fmd{font-family:var(--mono);font-size:12px;font-weight:700}
+  .fedmeet .fmy{color:var(--dim);font-weight:400;margin-left:2px}
+  .fmbarwrap{width:26px;height:70px;background:var(--panel3);border-radius:6px;display:flex;align-items:flex-end;overflow:hidden}
+  .fmbar{width:100%;border-radius:6px;min-height:5px;transition:height .3s}
+  .fedmeet .fmc{font-family:var(--mono);font-size:12px;font-weight:700}
+  .fedcaveat{font-size:11.5px;color:var(--dim);margin-top:14px;line-height:1.5;border-top:1px solid var(--hairline);padding-top:10px}
+  /* section grid */
+  .secgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:18px}
+  .seccard{padding:20px 22px}
+  /* section dial + coverflow carousel */
+  .secdial{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:0 0 24px}
+  .dialchip{display:flex;align-items:center;gap:7px;font-family:var(--sans);font-size:12px;font-weight:600;
+    color:var(--muted);background:transparent;border:1px solid var(--hairline);border-radius:20px;padding:5px 13px;cursor:pointer;transition:.15s}
+  .dialchip:hover{color:var(--txt);border-color:var(--hairline2)}
+  .dialchip.on{color:var(--txt);border-color:var(--accent2);background:rgba(63,200,192,.09)}
+  .dialchip .dd{width:8px;height:8px;border-radius:50%}
+  .carousel{position:relative;display:flex;align-items:center;justify-content:center}
+  .carstage{position:relative;flex:1;height:420px;transition:height .34s ease}
+  .carcard{position:absolute;top:50%;left:50%;width:min(520px,84%);
+    transition:transform .42s cubic-bezier(.2,.7,.2,1),opacity .42s ease;will-change:transform,opacity}
+  .carcard.active .seccard{box-shadow:0 22px 64px rgba(0,0,0,.5)}
+  .carcard:not(.active){cursor:pointer}
+  .carcard:not(.active) .seccard *{pointer-events:none}
+  .carrow{position:absolute;z-index:9;top:50%;transform:translateY(-50%);width:46px;height:46px;border-radius:50%;
+    background:var(--panel2);border:1px solid var(--hairline2);color:var(--txt);font-size:22px;line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:.15s}
+  .carrow:hover{border-color:var(--accent);color:var(--accent);background:var(--panel3)}
+  .carrow.left{left:0} .carrow.right{right:0}
+  @media (max-width:600px){.carcard{width:90%}.carrow{width:38px;height:38px;font-size:18px}}
+  .sechd{display:flex;align-items:center;gap:12px;margin-bottom:2px}
+  .sechd .lab{font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:-.01em}
+  .sechd .grow{flex:1}
+  .scorepill{font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-.01em;min-width:40px;text-align:center}
+  .secwhy{font-size:12.5px;color:var(--muted);margin:6px 0 14px;line-height:1.5}
+  .secwhy .why{color:var(--dim)}
+  .mrow{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid rgba(255,255,255,.05);cursor:pointer;transition:background .12s}
+  .mrow:hover{background:rgba(255,255,255,.02)}
+  .mname{flex:1;min-width:0}
+  .mname .mn{font-size:13px;font-weight:600}
+  .mname .mv{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .spark{flex:0 0 auto}
+  .schip{flex:0 0 auto;font-family:var(--mono);font-weight:700;font-size:12px;width:34px;text-align:center;border-radius:7px;padding:2px 0}
+  .mdetail{display:none;padding:2px 0 10px;font-size:12px;color:var(--muted);line-height:1.55}
+  .mrow.open + .mdetail{display:block}
+  .mdetail .tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+  .tag{font-family:var(--mono);font-size:10px;color:var(--muted);border:1px solid var(--hairline2);border-radius:6px;padding:1px 7px}
+  /* correlation heatmap */
+  .heat{border-collapse:collapse;font-family:var(--mono);font-size:11px}
+  .heat td,.heat th{padding:0;text-align:center}
+  .heat th{color:var(--muted);font-weight:600;padding:3px 5px;font-size:10px}
+  .heat td.cell{width:44px;height:34px;color:#0a0e14;font-weight:700}
+  .heat td.diag{color:var(--muted)}
+  /* track record */
+  .rectable{width:100%;border-collapse:collapse;font-size:13px}
+  .rectable th,.rectable td{border-bottom:1px solid var(--hairline);padding:6px 10px;text-align:right}
+  .rectable th:first-child,.rectable td:first-child{text-align:left}
+  .rectable th{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:600}
+  details.method{margin-top:16px;font-size:13px;color:var(--muted)}
+  details.method summary{cursor:pointer;color:var(--txt);font-weight:600}
+  details.method p{line-height:1.6}
+  .ccmsg{color:var(--muted);text-align:center;padding:60px 0;font-size:14px}
+  .loadbar{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent2);
+    animation:pulse 1s ease-in-out infinite;margin:0 2px}
+  @keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
+  @media (max-width:640px){.gaugebox,.gaugebox svg{width:240px}}
+</style>
+</head>
+<body>
+<div class="top">
+  <span class="brand">macro<b>::</b>monitor</span>
+  <span class="sp"></span>
+  <span class="asof" id="asof"></span>
+  <button class="btn" id="refresh">↻ Refresh</button>
+  <a class="btn" href="/#recession">← Dashboard</a>
+</div>
+<div class="wrap" id="app">
+  <div class="ccmsg">Scoring 25 macro series back to 1969 <span class="loadbar"></span><span class="loadbar" style="animation-delay:.2s"></span><span class="loadbar" style="animation-delay:.4s"></span></div>
+</div>
+
+<script>
+const BANDS=[[0,20,'Expansion','var(--pos)'],[20,40,'Mid-cycle','var(--accent)'],[40,60,'Late-cycle','var(--hibeta)'],[60,80,'Warning','var(--tieragg)'],[80,100,'Contraction','var(--neg)']];
+const bcol=s=>{ if(s==null) return 'var(--hairline2)'; for(const b of BANDS){ if(s>=b[0]&&s<b[1]) return b[3]; } return 'var(--neg)'; };
+const RAW={'var(--pos)':'#40c46a','var(--neg)':'#f2695f','var(--accent)':'#5b97f5','var(--accent2)':'#3fc8c0','var(--hibeta)':'#e3ab4f','var(--tieragg)':'#f0913a','var(--hairline2)':'#2a3547'};
+const raw=c=>RAW[c]||c;
+const fmt=v=>v==null?'—':(''+(Math.round(v*100)/100)).replace(/\.00$/,'');
+
+function gauge(m){
+  const W=300,H=186,cx=150,cy=160,r=112,A0=160,A1=380;
+  const ang=v=>A0+(A1-A0)*(Math.max(0,Math.min(100,v))/100);
+  const pt=(a,rr)=>[cx+rr*Math.cos(a*Math.PI/180),cy+rr*Math.sin(a*Math.PI/180)];
+  const seg=(v0,v1,c)=>{const a0=ang(v0),a1=ang(v1),[x0,y0]=pt(a0,r),[x1,y1]=pt(a1,r);return `<path d="M${x0.toFixed(1)} ${y0.toFixed(1)} A ${r} ${r} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}" fill="none" stroke="${raw(c)}" stroke-width="13" stroke-linecap="butt"/>`;};
+  const arcs=BANDS.map(b=>seg(b[0]+0.5,b[1]-0.5,b[3])).join('');
+  const na=ang(m.score),[nx,ny]=pt(na,r-7);
+  const col=raw(bcol(m.score));
+  return `<svg viewBox="0 0 ${W} ${H}">${arcs}
+    <line x1="${cx}" y1="${cy}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="#fff" stroke-width="2.5"/>
+    <circle cx="${cx}" cy="${cy}" r="5" fill="#fff"/>
+    <text x="${cx}" y="${cy-34}" text-anchor="middle" fill="${col}" style="font:800 46px var(--display)">${m.score}</text>
+    <text x="${cx}" y="${cy-14}" text-anchor="middle" fill="var(--muted)" style="font:600 11px var(--mono);letter-spacing:1px">/ 100</text></svg>`;
+}
+function history(h, startYear){
+  let P=h.points||[], SPX=h.spx||[];
+  if(startYear){ P=P.filter(p=>+p.d.slice(0,4)>=startYear); SPX=SPX.filter(p=>+p.d.slice(0,4)>=startYear); }
+  if(P.length<2) return '<div class="ccmsg">Not enough data in this range.</div>';
+  const W=1120,H=250,padL=6,padR=6,padT=14,padB=22;
+  const t=d=>new Date(d+'T00:00').getTime(), t0=t(P[0].d),t1=t(P[P.length-1].d), lastD=P[P.length-1].d, firstD=P[0].d;
+  const x=d=>padL+(t(d)-t0)/(t1-t0)*(W-padL-padR), y=s=>padT+(1-s/100)*(H-padT-padB);
+  const clamp=(v,lo,hi)=>v<lo?lo:(v>hi?hi:v);
+  const rec=(h.recessions||[]).filter(r=>t(r.end)>=t0&&t(r.start)<=t1).map(r=>{
+    const a=x(clamp(r.start,firstD,lastD)),b=x(clamp(r.end,firstD,lastD));
+    return `<rect x="${a.toFixed(1)}" y="${padT}" width="${Math.max(1.2,b-a).toFixed(1)}" height="${H-padT-padB}" fill="#8a94a6" opacity="0.16"/>`;}).join('');
+  const ty=y(h.trigger);
+  const trig=`<line x1="${padL}" y1="${ty.toFixed(1)}" x2="${W-padR}" y2="${ty.toFixed(1)}" stroke="var(--hibeta)" stroke-dasharray="4 3" stroke-width="1"/><text x="${W-padR}" y="${(ty-4).toFixed(1)}" text-anchor="end" fill="var(--hibeta)" style="font:600 9px var(--mono)">trigger ${h.trigger}</text>`;
+  let spxline='';
+  if(SPX.length>2){
+    const lg=SPX.map(p=>Math.log(p.v)),smn=Math.min(...lg),smx=Math.max(...lg),srng=(smx-smn)||1;
+    const sy=v=>padT+(1-(Math.log(v)-smn)/srng)*(H-padT-padB);
+    const sd=SPX.map((p,i)=>`${i?'L':'M'}${x(p.d).toFixed(1)} ${sy(p.v).toFixed(1)}`).join(' ');
+    spxline=`<path d="${sd}" fill="none" stroke="#8a94a6" stroke-width="1" opacity="0.32"/>`
+      +`<text x="${padL+4}" y="${padT+10}" fill="#8a94a6" opacity="0.7" style="font:9px var(--mono)">S&amp;P 500 · log · faded</text>`;
+  }
+  const d=P.map((p,i)=>`${i?'L':'M'}${x(p.d).toFixed(1)} ${y(p.s).toFixed(1)}`).join(' ');
+  const line=`<path d="${d}" fill="none" stroke="var(--accent2)" stroke-width="1.4"/>`;
+  const last=P[P.length-1], dot=`<circle cx="${x(last.d).toFixed(1)}" cy="${y(last.s).toFixed(1)}" r="4" fill="#fff"/>`;
+  const y0=+firstD.slice(0,4), y1=+lastD.slice(0,4), sp=y1-y0, st=sp<=8?1:sp<=18?2:sp<=32?5:10;
+  let yrs=''; for(let yr=Math.ceil(y0/st)*st; yr<=y1; yr+=st){ const xx=x(yr+'-01-01'); if(xx>padL+8&&xx<W-padR) yrs+=`<text x="${xx.toFixed(1)}" y="${H-6}" text-anchor="middle" fill="var(--muted)" style="font:9px var(--mono)">${yr}</text>`; }
+  return `<svg viewBox="0 0 ${W} ${H}">${rec}${spxline}${trig}${line}${dot}${yrs}</svg>`;
+}
+function spark(pts,stress){
+  if(!pts||pts.length<2) return '';
+  const W=88,H=24,vs=pts.map(p=>p.s),mn=Math.min(...vs),mx=Math.max(...vs),rng=(mx-mn)||1;
+  const x=i=>i/(pts.length-1)*W, y=v=>H-2-(v-mn)/rng*(H-4);
+  const d=pts.map((p,i)=>`${i?'L':'M'}${x(i).toFixed(1)} ${y(p.s).toFixed(1)}`).join(' ');
+  return `<svg class="spark" width="${W}" height="${H}"><path d="${d}" fill="none" stroke="${raw(bcol(stress))}" stroke-width="1.4"/></svg>`;
+}
+function barChart(pts){
+  if(!pts||pts.length<2) return '';
+  const W=620,H=104,padB=16,padT=6,n=pts.length,bw=(W)/n;
+  const bars=pts.map((p,i)=>{
+    const h=(p.s/100)*(H-padB-padT), x=i*bw, y=H-padB-h;
+    return `<rect x="${(x+0.4).toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(0.8,bw-0.8).toFixed(1)}" height="${Math.max(0.8,h).toFixed(1)}" fill="${raw(bcol(p.s))}" fill-opacity="0.9" rx="1"><title>${p.d.slice(0,7)} · stress ${Math.round(p.s)}</title></rect>`;
+  }).join('');
+  // year gridlines
+  let ticks='';const yrs=new Set();
+  pts.forEach((p,i)=>{const yr=p.d.slice(0,4);if(!yrs.has(yr)&&yr%2===0){yrs.add(yr);const x=i*bw;ticks+=`<text x="${x.toFixed(1)}" y="${H-3}" fill="var(--dim)" style="font:8px var(--mono)">${yr.slice(2)}</text>`;}});
+  const mid=`<line x1="0" y1="${(H-padB-(50/100)*(H-padB-padT)).toFixed(1)}" x2="${W}" y2="${(H-padB-(50/100)*(H-padB-padT)).toFixed(1)}" stroke="var(--hairline)" stroke-dasharray="2 3" stroke-width="0.6"/>`;
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;margin:8px 0 2px">${mid}${bars}${ticks}</svg>`;
+}
+function memberRow(m){
+  const c=raw(bcol(m.stress));
+  return `<div class="mrow" onclick="this.classList.toggle('open');positionCarousel()">
+      <span class="mname"><span class="mn">${m.name}</span><br><span class="mv">${fmt(m.value)}${m.value_date?` · ${m.value_date.slice(0,7)}`:''}</span></span>
+      ${spark(m.spark,m.stress)}
+      <span class="schip" style="background:${c}22;color:${c}">${m.stress==null?'—':Math.round(m.stress)}</span>
+    </div>
+    <div class="mdetail">${m.explain||''}
+      ${barChart(m.spark)}
+      <div class="barcap muted">Stress history — bar height = 0–100, green calm → red stressed. Dashed line = 50.</div>
+      <div class="tags"><span class="tag">stress ${m.stress==null?'—':Math.round(m.stress)}/100</span>
+      <span class="tag">transform: ${m.transform}</span>
+      <span class="tag">${m.direction.replace(/_/g,' ')}</span>
+      <span class="tag">latest ${fmt(m.value)}${m.value_date?' ('+m.value_date+')':''}</span></div></div>`;
+}
+function sectionCard(s){
+  const c=raw(bcol(s.score));
+  return `<div class="card seccard">
+    <div class="sechd"><span class="lab">${s.label}</span><span class="grow"></span>
+      <span class="scorepill" style="color:${c}">${s.score==null?'n/a':Math.round(s.score)}</span></div>
+    <div class="secwhy">${s.what} <span class="why">${s.why}</span></div>
+    ${s.members.map(memberRow).join('')}
+  </div>`;
+}
+function heatmap(cr){
+  if(!cr||!cr.labels) return '';
+  const L=cr.labels, M=cr.matrix;
+  const cell=v=>{ // blue for +, orange for -
+    const a=Math.min(1,Math.abs(v)); const base=v>=0?'91,151,245':'240,145,58';
+    return `rgba(${base},${(0.15+a*0.75).toFixed(2)})`;
+  };
+  let h='<table class="heat"><tr><th></th>'+L.map(l=>`<th>${l.split(' ')[0]}</th>`).join('')+'</tr>';
+  M.forEach((row,i)=>{ h+=`<tr><th style="text-align:right">${L[i].split(' ')[0]}</th>`+
+    row.map((v,j)=>i===j?`<td class="cell diag">1</td>`:`<td class="cell" style="background:${cell(v)}">${v.toFixed(1)}</td>`).join('')+'</tr>'; });
+  return h+'</table>';
+}
+function summarize(d){
+  const withScore=d.sections.filter(s=>s.score!=null);
+  const hot=withScore.slice(0,2).map(s=>s.label.split(' ')[0]);
+  const cool=[...withScore].reverse().slice(0,2).map(s=>s.label.split(' ')[0]);
+  const dir=d.delta_3m==null?'flat':(d.delta_3m>2?'rising':d.delta_3m<-2?'easing':'roughly flat');
+  const bandName=(BANDS.find(b=>d.score>=b[0]&&d.score<b[1])||BANDS[4])[2];
+  return `Macro pressure is <b>${d.score}/100</b> — <b style="color:${raw(bcol(d.score))}">${bandName}</b> and ${dir} over 3 months. `+
+    `Hottest right now: <b>${hot.join(' & ')}</b>. Calmest: ${cool.join(' & ')}.`;
+}
+let _histData=null;
+function recHist(yr){ yr=+yr; const s=document.getElementById('histslider'); if(s) s.value=yr;
+  const l=document.getElementById('histyear'); if(l) l.textContent=yr;
+  const c=document.getElementById('histchart'); if(c&&_histData) c.innerHTML=history(_histData,yr); }
+function render(d){
+  const app=document.getElementById('app');
+  const _hp=d.history.points||[]; const firstYr=_hp.length?+_hp[0].d.slice(0,4):1971;
+  const lastYr=_hp.length?+_hp[_hp.length-1].d.slice(0,4):2026;
+  const maxStart=lastYr-3, defStart=Math.max(2000,firstYr), p10=lastYr-10, p5=lastYr-5;
+  _histData=d.history;
+  document.getElementById('asof').textContent='as of '+d.as_of+' · '+d.coverage_pct+'% coverage';
+  const dchip=(v,lbl)=>v==null?'':`<span class="delta" style="color:${v>=0?'var(--neg)':'var(--pos)'}">${v>=0?'▲':'▼'} ${Math.abs(v).toFixed(1)}</span> <span class="muted">${lbl}</span>`;
+  const dd=d.risk||{};
+  const ddrows=[dd.dd10,dd.dd15,dd.dd20].filter(Boolean).map(r=>`<tr><td>≥ ${r.bar}% market selloff</td><td>${r.base}%</td><td><b>${r.prec}%</b></td><td>${r.lift}×</td><td>${r.auc}</td></tr>`).join('');
+  const genuine=(d.crossings||[]).filter(c=>c.genuine).map(c=>c.date);
+  const useful=(d.crossings||[]).filter(c=>c.recession||c.risk_useful).length, ncr=(d.crossings||[]).length;
+  app.innerHTML=`
+  <div class="card hero">
+    <div class="gaugebox">${gauge(d)}<div class="gband" style="color:${raw(bcol(d.score))}">${d.band}</div></div>
+    <div class="herohd">
+      <div class="kick">The read · one number for the whole macro picture</div>
+      <div class="summary">${summarize(d)}</div>
+      <div class="heromChips">
+        <span>${dchip(d.delta_1m,'1-month')}</span><span>${dchip(d.delta_3m,'3-month')}</span>
+        <span>coverage <b>${d.coverage_pct}%</b></span><span>reading <b>${d.as_of}</b></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="fedpanel"></div>
+
+  <h2 class="sec">The whole picture</h2>
+  <div class="sec-sub">Composite meter with the S&amp;P 500 (faded, log) and NBER recessions shaded. Drag the slider to focus a period — older data is context, not always needed.</div>
+  <div class="histctl">
+    <span class="histfrom">from <b id="histyear">${defStart}</b></span>
+    <input type="range" id="histslider" min="${firstYr}" max="${maxStart}" value="${defStart}" oninput="recHist(this.value)">
+    <span class="histpre">
+      <button onclick="recHist(${firstYr})">All</button>
+      <button onclick="recHist(2000)">2000</button>
+      <button onclick="recHist(${p10})">10Y</button>
+      <button onclick="recHist(${p5})">5Y</button>
+    </span>
+  </div>
+  <div class="card histwrap" id="histchart">${history(d.history, defStart)}</div>
+
+  <h2 class="sec">What's driving it — section by section</h2>
+  <div class="sec-sub">Hottest first. Use the dial or the arrows to rotate through sections; click any metric to peel back the how &amp; why.</div>
+  <div class="secdial" id="secdial">${d.sections.map((s,i)=>`<button class="dialchip" onclick="recGoTo(${i})"><span class="dd" style="background:${raw(bcol(s.score))}"></span>${s.label.split(' ')[0]} <b style="color:${raw(bcol(s.score))}">${s.score==null?'':Math.round(s.score)}</b></button>`).join('')}</div>
+  <div class="carousel">
+    <button class="carrow left" onclick="recStep(-1)" aria-label="previous">‹</button>
+    <div class="carstage" id="carstage">${d.sections.map((s,i)=>`<div class="carcard" data-i="${i}">${sectionCard(s)}</div>`).join('')}</div>
+    <button class="carrow right" onclick="recStep(1)" aria-label="next">›</button>
+  </div>
+
+  <h2 class="sec">How the blocks move together</h2>
+  <div class="sec-sub">Correlation of section-stress over the last 15 years. Blue = move together, orange = move opposite. Tells you which signals are corroborating vs independent.</div>
+  <div class="card" style="padding:18px 20px;overflow-x:auto">${heatmap(d.correlations)}</div>
+
+  <h2 class="sec">Does it actually work?</h2>
+  <div class="sec-sub">The honest track record — when the meter crossed ${d.trigger}, how often did a market drawdown follow within 12 months? Context for learning, not a trade instruction.</div>
+  <div class="card" style="padding:18px 20px">
+    <table class="rectable"><tr><th>Forward event</th><th>base rate</th><th>precision @${d.trigger}</th><th>lift</th><th>AUC</th></tr>${ddrows}</table>
+    <p class="muted" style="margin:10px 0 0;font-size:12.5px"><b>${useful}/${ncr}</b> of the meter's ≥${d.trigger} crossings preceded a real recession or ≥10% selloff.
+    ${genuine.length?`Genuine false alarms: <span style="color:var(--hibeta)">${genuine.join(', ')}</span>.`:'No genuine false alarms.'}</p>
+    <details class="method"><summary>How every number is built (methodology)</summary>
+      <p>Each of 25 series is transformed (level, year-over-year, rate-of-change, or drawdown), then scored as a
+      <b>percentile against its own history</b> using only data available at the time (no look-ahead), blended 50/50 with a
+      <b>velocity</b> term that captures how fast it's deteriorating. COVID months are excluded from every reference distribution.
+      Section scores are the coverage-weighted mean of their members (a missing series lowers coverage, it's never zero-filled);
+      the composite is the section-weighted mean. Levels are display-only — the whole engine is regime-relative, which is why a
+      4% unemployment rate can read calm in one era and alarming in another.</p></details>
+  </div>`;
+  _recN=d.sections.length; _recIdx=0; positionCarousel();
+}
+// --- Fed path & policy regime (market-implied from the Treasury curve) ---
+function cutTxt(v){ if(v==null) return '—'; if(Math.abs(v)<0.1) return 'hold'; const n=Math.abs(v).toFixed(1),p=(n!=='1.0')?'s':''; return v>0?`${n} cut${p}`:`${n} hike${p}`; }
+function cutCol(v){ if(v==null||Math.abs(v)<0.1) return 'var(--muted)'; return v>0?'var(--pos)':'var(--neg)'; }
+async function loadFed(){
+  const host=document.getElementById('fedpanel'); if(!host) return;
+  try{
+    const d=await (await fetch('/api/recession/fedpath')).json();
+    if(d.status!=='ok'){ host.innerHTML=''; return; }
+    host.innerHTML=fedPanel(d);
+  }catch(e){ host.innerHTML=''; }
+}
+function fedPanel(d){
+  const bc={green:'var(--pos)',red:'var(--neg)',amber:'var(--hibeta)'}[d.color]||'var(--muted)';
+  const chips=d.path.map(p=>`<div class="fedchip">
+      <div class="fh">${p.label}</div>
+      <div class="fr">${p.rate==null?'—':p.rate+'%'}</div>
+      <div class="fc" style="color:${cutCol(p.cuts)}">${cutTxt(p.cuts)}</div></div>`).join('');
+  const meet=d.meetings.map(m=>{
+    const c=cutCol(m.cum_cuts), md=m.date.slice(5).replace('-','/');
+    return `<div class="fedmeet${m.tentative?' tent':''}">
+      <div class="fmd">${md}<span class="fmy">'${m.date.slice(2,4)}</span></div>
+      <div class="fmbarwrap"><div class="fmbar" style="height:${Math.min(100,Math.abs(m.cum_cuts)*22+6)}%;background:${c}"></div></div>
+      <div class="fmc" style="color:${c}">${m.cum_cuts>0?'+':''}${m.cum_cuts}</div></div>`;
+  }).join('');
+  return `<div class="card fedcard">
+    <button class="fedbar" onclick="this.parentNode.classList.toggle('open')" aria-label="expand Fed path">
+      <div class="fedbarL">
+        <div class="kick">Fed path &amp; policy regime</div>
+        <div class="fedcur">Target <b>${d.lower}–${d.upper}%</b> · EFFR <b>${d.effr}%</b> · pricing
+          <b style="color:${cutCol(d.cuts_1y)}">${cutTxt(d.cuts_1y)}</b> over 12mo</div>
+      </div>
+      <span class="grow"></span>
+      <span class="fedbadge" style="color:${bc};border-color:${bc}">${d.regime}</span>
+      <span class="fedchev">▾</span>
+    </button>
+    <div class="fedbody">
+      <div class="fedimplied">Market is pricing <b style="color:${cutCol(d.cuts_1y)}">${cutTxt(d.cuts_1y)}</b> over the next 12 months
+        <span class="muted">— implied by the Treasury curve</span></div>
+      <div class="fedchips">${chips}</div>
+      <div class="kick" style="margin:16px 0 6px">Expected path across FOMC meetings <span class="muted" style="text-transform:none;letter-spacing:0">· cumulative cuts(+)/hikes(−) priced by each date</span></div>
+      <div class="fedmeets">${meet}</div>
+      <div class="fedcaveat">Market-implied from the Treasury curve — a free proxy for CME FedWatch, <b>not</b> CME's futures-based probabilities. Bars show the market's expected cumulative move, not per-meeting odds.</div>
+    </div>
+  </div>`;
+}
+// --- section coverflow carousel ---
+let _recIdx=0, _recN=0;
+function recGoTo(i){ if(!_recN) return; _recIdx=((i%_recN)+_recN)%_recN; positionCarousel(); }
+function recStep(d){ recGoTo(_recIdx+d); }
+function positionCarousel(){
+  const cards=document.querySelectorAll('.carcard'); const n=cards.length; if(!n) return;
+  cards.forEach((el,i)=>{
+    let off=i-_recIdx; if(off>n/2) off-=n; if(off<-n/2) off+=n;
+    const a=Math.abs(off); let tx,sc,op,z;
+    if(off===0){ tx='-50%'; sc=1; op=1; z=6; }
+    else if(a===1){ tx=`calc(-50% + ${off*58}%)`; sc=0.82; op=0.42; z=3; }
+    else{ tx=`calc(-50% + ${(off>0?1:-1)*106}%)`; sc=0.72; op=0; z=1; }
+    el.style.transform=`translateX(${tx}) translateY(-50%) scale(${sc})`;
+    el.style.opacity=op; el.style.zIndex=z; el.style.pointerEvents=(a<=1?'auto':'none');
+    el.classList.toggle('active', off===0);
+    el.onclick = off===0 ? null : (()=>recGoTo(i));
+  });
+  document.querySelectorAll('.dialchip').forEach((c,i)=>c.classList.toggle('on', i===_recIdx));
+  const stage=document.getElementById('carstage');
+  if(stage){ let maxH=0; cards.forEach(el=>maxH=Math.max(maxH,el.offsetHeight)); stage.style.height=(maxH+24)+'px'; }
+}
+document.addEventListener('keydown',e=>{ if(!document.querySelector('.carousel')) return;
+  if(e.key==='ArrowLeft') recStep(-1); if(e.key==='ArrowRight') recStep(1); });
+
+async function load(refresh){
+  try{
+    const d=await (await fetch('/api/recession/full'+(refresh?'?refresh=1':''))).json();
+    if(d.status==='no_key'){ document.getElementById('app').innerHTML='<div class="ccmsg">Add <code>FRED_API_KEY</code> to .env to enable the macro monitor.</div>'; return; }
+    if(d.status!=='ok'){ document.getElementById('app').innerHTML=`<div class="ccmsg">Macro monitor: ${d.detail||d.status}</div>`; return; }
+    render(d);
+    loadFed();
+  }catch(e){ document.getElementById('app').innerHTML=`<div class="ccmsg">Failed to load: ${e.message}</div>`; }
+}
+document.getElementById('refresh').onclick=()=>{ document.getElementById('app').innerHTML='<div class="ccmsg">Recomputing…</div>'; load(true); };
+load();
+</script>
+</body>
+</html>
