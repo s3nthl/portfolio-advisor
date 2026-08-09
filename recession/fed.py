@@ -99,9 +99,18 @@ def compute(force: bool = False) -> dict:
             continue
         mo = (dd - today).days / 30.44
         cum = _interp(pts, mo)
+        inc = cum - prev                          # this meeting's expected move (25bp steps)
+        move = int(min(100, round(abs(inc) * 100)))   # P(a 25bp move) — single-step proxy
+        if inc > 0.03:
+            direction, p_cut, p_hike = "cut", move, 0
+        elif inc < -0.03:
+            direction, p_cut, p_hike = "hike", 0, move
+        else:
+            direction, p_cut, p_hike, move = "hold", 0, 0, 0
         meetings.append({"date": d, "months_out": round(mo, 1),
-                         "cum_cuts": cum, "inc": round(cum - prev, 2),
-                         "tentative": dd.year >= 2027})
+                         "cum_cuts": cum, "inc": round(inc, 2), "dir": direction,
+                         "move_pct": move, "p_cut": p_cut, "p_hike": p_hike,
+                         "p_hold": 100 - move, "tentative": dd.year >= 2027})
         prev = cum
         if len(meetings) >= 8:
             break

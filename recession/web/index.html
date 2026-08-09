@@ -84,13 +84,16 @@
   .fedchip .fr{font-family:var(--display);font-size:21px;font-weight:700;margin-top:3px}
   .fedchip .fc{font-family:var(--mono);font-size:12px;font-weight:700;margin-top:1px}
   .fedmeets{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}
-  .fedmeet{flex:0 0 auto;width:74px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
-  .fedmeet.tent{opacity:.5}
+  .fedmeet{flex:1 1 0;min-width:96px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:7px;
+    padding:10px 8px;border:1px solid var(--hairline);border-radius:12px;background:rgba(255,255,255,.015)}
+  .fedmeet.tent{opacity:.55}
   .fedmeet .fmd{font-family:var(--mono);font-size:12px;font-weight:700}
-  .fedmeet .fmy{color:var(--dim);font-weight:400;margin-left:2px}
-  .fmbarwrap{width:26px;height:70px;background:var(--panel3);border-radius:6px;display:flex;align-items:flex-end;overflow:hidden}
-  .fmbar{width:100%;border-radius:6px;min-height:5px;transition:height .3s}
-  .fedmeet .fmc{font-family:var(--mono);font-size:12px;font-weight:700}
+  .fedmeet .fmy{color:var(--dim);font-weight:400}
+  .fmbar2{display:flex;width:100%;height:8px;border-radius:5px;overflow:hidden;background:var(--panel3)}
+  .fmbar2 .seg{display:block;min-width:0}
+  .fedmeet .fmpct{font-family:var(--mono);font-size:13px}
+  .fedmeet .fmpct b{font-size:15px}
+  .fedmeet .fmhold{font-family:var(--mono);font-size:10px;color:var(--dim)}
   .fedhist{margin:2px 0 6px}
   .fedcaveat{font-size:11.5px;color:var(--dim);margin-top:14px;line-height:1.5;border-top:1px solid var(--hairline);padding-top:10px}
   /* section grid */
@@ -391,12 +394,19 @@ function fedPanel(d){
       <div class="fh">${p.label}</div>
       <div class="fr">${p.rate==null?'—':p.rate+'%'}</div>
       <div class="fc" style="color:${cutCol(p.cuts)}">${cutTxt(p.cuts)}</div></div>`).join('');
+  const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const meet=d.meetings.map(m=>{
-    const c=cutCol(m.cum_cuts), md=m.date.slice(5).replace('-','/');
+    const col=m.dir==='cut'?'var(--pos)':m.dir==='hike'?'var(--neg)':'var(--muted)';
+    const p=m.date.split('-'), lbl=`${MON[+p[1]-1]} ${+p[2]} <span class="fmy">'${p[0].slice(2)}</span>`;
+    const head=m.dir==='hold'
+      ? `<b class="muted">HOLD</b>`
+      : `<b style="color:${col}">${m.move_pct}%</b> <span style="color:${col}">${m.dir}</span>`;
     return `<div class="fedmeet${m.tentative?' tent':''}">
-      <div class="fmd">${md}<span class="fmy">'${m.date.slice(2,4)}</span></div>
-      <div class="fmbarwrap"><div class="fmbar" style="height:${Math.min(100,Math.abs(m.cum_cuts)*22+6)}%;background:${c}"></div></div>
-      <div class="fmc" style="color:${c}">${m.cum_cuts>0?'+':''}${m.cum_cuts}</div></div>`;
+      <div class="fmd">${lbl}</div>
+      <div class="fmbar2"><span class="seg" style="flex:${m.p_hold};background:var(--hairline2)"></span><span class="seg" style="flex:${m.move_pct};background:${col}"></span></div>
+      <div class="fmpct">${head}</div>
+      <div class="fmhold">${m.p_hold}% hold</div>
+    </div>`;
   }).join('');
   return `<div class="card fedcard">
     <button class="fedbar" onclick="this.parentNode.classList.toggle('open')" aria-label="expand Fed path">
@@ -416,9 +426,9 @@ function fedPanel(d){
       <div class="fedhist">${fedHistChart(d.history)}</div>`:''}
       <div class="kick" style="margin:16px 0 6px">By horizon</div>
       <div class="fedchips">${chips}</div>
-      <div class="kick" style="margin:16px 0 6px">Expected path across FOMC meetings <span class="muted" style="text-transform:none;letter-spacing:0">· cumulative cuts(+)/hikes(−) priced by each date</span></div>
+      <div class="kick" style="margin:16px 0 6px">Odds at each FOMC meeting <span class="muted" style="text-transform:none;letter-spacing:0">· market-implied chance of a <span style="color:var(--neg)">hike</span> / <span style="color:var(--pos)">cut</span> vs hold</span></div>
       <div class="fedmeets">${meet}</div>
-      <div class="fedcaveat">Market-implied from the Treasury curve — a free proxy for CME FedWatch, <b>not</b> CME's futures-based probabilities. Bars show the market's expected cumulative move, not per-meeting odds.</div>
+      <div class="fedcaveat">Odds are derived from the Treasury-implied expected move at each meeting (single 25bp-step model) — a free proxy for CME FedWatch, <b>not</b> CME's futures-based probabilities.</div>
     </div>
   </div>`;
 }
