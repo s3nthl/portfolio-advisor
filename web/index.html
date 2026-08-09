@@ -78,18 +78,36 @@
   button#refresh:hover{filter:brightness(1.06);box-shadow:0 1px 0 rgba(255,255,255,.3) inset,0 10px 26px -6px rgba(91,151,245,.75);transform:translateY(-1px)}
   button#refresh:active{transform:translateY(0) scale(.98)}
   button#refresh:disabled{opacity:.55;cursor:progress;filter:none;transform:none}
-  nav{display:flex;gap:2px;padding:9px 20px 0;border-bottom:1px solid var(--hairline);
-    background:linear-gradient(180deg,rgba(15,20,29,.7),rgba(9,12,18,.4));
-    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);position:sticky;top:57px;z-index:25}
-  nav button{position:relative;background:transparent;border:0;color:var(--muted);padding:11px 16px 13px;cursor:pointer;
-    font-size:13px;font-weight:600;letter-spacing:-.005em;border-radius:8px 8px 0 0;transition:color .18s var(--ease),background .18s}
-  nav button:hover{color:var(--txt);background:rgba(255,255,255,.03)}
-  nav button::after{content:"";position:absolute;left:14px;right:14px;bottom:-1px;height:2px;border-radius:2px;
-    background:linear-gradient(90deg,var(--accent),var(--accent2));transform:scaleX(0);transform-origin:center;
-    transition:transform .26s var(--ease);box-shadow:0 0 12px rgba(91,151,245,.6)}
-  nav button.active{color:var(--txt)}
-  nav button.active::after{transform:scaleX(1)}
-  main{padding:24px 22px 60px;max-width:1200px;margin:0 auto}
+  /* ---- app shell: left icon rail + fluid full-width content ---- */
+  .shell{display:flex;align-items:flex-start;min-height:100vh}
+  .rail{position:sticky;top:0;height:100vh;flex:0 0 190px;display:flex;flex-direction:column;gap:2px;
+    padding:16px 12px 14px;border-right:1px solid var(--hairline);
+    background:linear-gradient(180deg,rgba(16,21,30,.55),rgba(9,12,18,.25))}
+  .railbrand{font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:.3px;text-transform:lowercase;padding:4px 10px 16px}
+  .railbrand b{color:var(--accent)} .railbrand span{color:var(--accent2)}
+  .rail nav{display:flex;flex-direction:column;gap:2px;padding:0;border:0;background:none;position:static}
+  .rail nav button{display:flex;align-items:center;gap:11px;width:100%;background:transparent;border:0;color:var(--muted);
+    padding:9px 11px;cursor:pointer;font-size:13px;font-weight:600;border-radius:10px;text-align:left;position:relative;
+    transition:color .15s,background .15s}
+  .rail nav button svg{width:18px;height:18px;flex:0 0 auto;opacity:.9}
+  .rail nav button:hover{color:var(--txt);background:rgba(255,255,255,.045)}
+  .rail nav button.active{color:var(--txt);background:rgba(91,151,245,.13)}
+  .rail nav button.active::before{content:"";position:absolute;left:-12px;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;
+    background:linear-gradient(180deg,var(--accent),var(--accent2))}
+  .rail nav button.ai-tab{color:var(--accent2)}
+  .railgrow{flex:1}
+  .railfoot{padding:10px 8px 0}
+  .content{flex:1;min-width:0}
+  main{padding:22px 30px 60px}
+  @media(max-width:760px){
+    .shell{flex-direction:column}
+    .rail{position:sticky;top:0;height:auto;width:auto;flex:none;flex-direction:row;overflow-x:auto;gap:2px;
+      border-right:0;border-bottom:1px solid var(--hairline);padding:8px 10px;z-index:40}
+    .rail nav{flex-direction:row}
+    .rail nav button span{display:none} .rail nav button{padding:9px 10px}
+    .rail nav button.active::before{display:none}
+    .railbrand,.railgrow,.railfoot{display:none}
+  }
   .tab{display:none}
   .tab.active{display:block;animation:fadeUp .34s var(--ease) both}
   .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(212px,1fr));gap:14px}
@@ -609,27 +627,32 @@
 </style>
 </head>
 <body>
+<div class="shell">
+<aside class="rail">
+  <div class="railbrand">s3nthl<b>::</b><span>port</span></div>
+  <nav>
+    <button data-tab="portfolio" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.3"/></svg><span>Portfolio</span></button>
+    <button data-tab="sector"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span>Sector</span></button>
+    <button data-tab="coveredcalls"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.6-3 7.6-7 8.7-4-1.1-7-4.1-7-8.7V6z"/></svg><span>Covered Calls</span></button>
+    <button data-tab="cspselect"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/></svg><span>CSP Selector</span></button>
+    <button data-tab="gex"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 20V11M9.3 20V5M14.6 20V14M20 20V8"/></svg><span>GEX</span></button>
+    <button data-tab="recession"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h3.5l2.5 6 4-15 2.5 9H21"/></svg><span>Macro</span></button>
+    <button data-tab="command"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 8h16M4 16h16"/><circle cx="10" cy="8" r="2.3" fill="var(--bg)"/><circle cx="15" cy="16" r="2.3" fill="var(--bg)"/></svg><span>Command</span></button>
+    <button data-tab="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 1.9"/></svg><span>History</span></button>
+    <button data-tab="fundamentals"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 4v16h16"/><path d="M8 16v-4M12.5 16V8M17 16v-6"/></svg><span>Fundamentals</span></button>
+    <button data-tab="ideas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 18h5M10.5 21h3"/><path d="M12 3a6 6 0 0 0-3.8 10.6c.8.7 1.3 1.3 1.3 2.4h5c0-1.1.5-1.7 1.3-2.4A6 6 0 0 0 12 3z"/></svg><span>Ideas</span></button>
+    <button data-tab="ai" class="ai-tab"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 3l1.7 5.1L19 10l-5.3 1.9L12 17l-1.7-5.1L5 10l5.3-1.9z"/></svg><span>AI</span></button>
+  </nav>
+  <div class="railgrow"></div>
+  <div class="railfoot"><span id="srcbadge" class="badge">—</span></div>
+</aside>
+<div class="content">
 <header>
-  <h1>s3nthl<b>::</b>portfolio<span class="caret">_</span></h1>
-  <span id="srcbadge" class="badge">—</span>
+  <div class="hl" style="text-align:left"><div class="big" id="netliq">—</div><div class="sub" id="stamp">not yet refreshed</div></div>
   <div class="grow"></div>
-  <div class="hl"><div class="big" id="netliq">—</div><div class="sub" id="stamp">not yet refreshed</div></div>
   <button id="refresh">↻ Refresh</button>
 </header>
 <div id="ticker"></div>
-<nav>
-  <button data-tab="portfolio" class="active">Portfolio %</button>
-  <button data-tab="sector">Sector</button>
-  <button data-tab="coveredcalls">Covered Calls</button>
-  <button data-tab="cspselect">CSP Selector</button>
-  <button data-tab="gex">GEX</button>
-  <button data-tab="recession">Macro</button>
-  <button data-tab="command">Command</button>
-  <button data-tab="history">History</button>
-  <button data-tab="fundamentals">Fundamentals</button>
-  <button data-tab="ideas">Ideas</button>
-  <button data-tab="ai" class="ai-tab">✦ AI</button>
-</nav>
 <main>
   <div id="err"></div>
 
@@ -780,6 +803,8 @@
     </div>
   </section>
 </main>
+</div><!-- .content -->
+</div><!-- .shell -->
 
 <script>
 const GROUP_META = {
@@ -849,11 +874,11 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   window.addEventListener('hashchange', go); go();
 })();
 
-async function refresh(){
+async function refresh(force){
   const btn=document.getElementById('refresh'); btn.disabled=true; btn.textContent="↻ Pulling…";
   document.getElementById('err').innerHTML="";
   try{
-    const r = await fetch('/api/refresh'); const d = await r.json();
+    const r = await fetch('/api/refresh'+(force?'?force=1':'')); const d = await r.json();
     if(!r.ok || d.error){ throw new Error(d.detail||d.error||('HTTP '+r.status)); }
     render(d);
     _ccLoaded=false;  // force covered-call re-analysis on next open
@@ -2583,8 +2608,8 @@ _ai.onkeydown=e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); askAI(_
 document.getElementById('ai-send').onclick=()=>askAI(_ai.value);
 document.getElementById('ai-clear').onclick=()=>{ _aiMessages=[]; aiSave(); renderAiChat(); };
 
-document.getElementById('refresh').onclick=refresh;
-refresh(); // on-demand pull on first load (single fetch, not polling)
+document.getElementById('refresh').onclick=()=>refresh(true); // manual = force fresh pull
+refresh(); // on load: reuse the cached pull if warm (instant), else pull once
 </script>
 </body>
 </html>

@@ -78,9 +78,20 @@ def health() -> dict:
     return {"status": "ok", "source": config.CHAI_SOURCE}
 
 
+_REFRESH_CACHE: dict = {"t": 0.0, "payload": None}
+_REFRESH_TTL = 120  # seconds — a page reload / back-navigation within this reuses
+                    # the last pull instantly; the Refresh button forces a fresh one.
+
+
 @app.get("/api/refresh")
-def api_refresh() -> JSONResponse:
-    """On-demand pull: fetch the live book, compute everything, persist a snapshot."""
+def api_refresh(force: bool = False) -> JSONResponse:
+    """On-demand pull: fetch the live book, compute everything, persist a snapshot.
+    Cached for a short window so navigating back to the dashboard is instant; the
+    Refresh button (force=1) always pulls fresh."""
+    import time as _time
+    if (not force and _REFRESH_CACHE["payload"] is not None
+            and _time.time() - _REFRESH_CACHE["t"] < _REFRESH_TTL):
+        return JSONResponse({**_REFRESH_CACHE["payload"], "cached": True})
     try:
         book = load_book()  # source per CHAI_SOURCE; schwab -> snapshot fallback
     except Exception as exc:
@@ -140,7 +151,7 @@ def api_refresh() -> JSONResponse:
     row_id = write_snapshot(book, source=config.CHAI_SOURCE)
     delta = _serialize_delta(latest_delta())
 
-    return JSONResponse({
+    payload = {
         "snapshot_id": row_id,
         "source": config.CHAI_SOURCE,
         "as_of": s["as_of"],
@@ -150,7 +161,10 @@ def api_refresh() -> JSONResponse:
         "sectors": sectors,
         "earnings": earnings,
         "delta": delta,
-    })
+    }
+    import time as _time
+    _REFRESH_CACHE.update(t=_time.time(), payload=payload)
+    return JSONResponse(payload)
 
 
 @app.get("/api/covered-calls")

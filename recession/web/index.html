@@ -91,6 +91,7 @@
   .fmbarwrap{width:26px;height:70px;background:var(--panel3);border-radius:6px;display:flex;align-items:flex-end;overflow:hidden}
   .fmbar{width:100%;border-radius:6px;min-height:5px;transition:height .3s}
   .fedmeet .fmc{font-family:var(--mono);font-size:12px;font-weight:700}
+  .fedhist{margin:2px 0 6px}
   .fedcaveat{font-size:11.5px;color:var(--dim);margin-top:14px;line-height:1.5;border-top:1px solid var(--hairline);padding-top:10px}
   /* section grid */
   .secgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:18px}
@@ -364,6 +365,26 @@ async function loadFed(){
     host.innerHTML=fedPanel(d);
   }catch(e){ host.innerHTML=''; }
 }
+function fedHistChart(H){
+  if(!H||H.length<3) return '';
+  const W=940,Ht=132,padT=12,padB=20,padX=6;
+  const t=d=>new Date(d+'T00:00').getTime(), t0=t(H[0].d), t1=t(H[H.length-1].d);
+  const mx=Math.max(1,...H.map(p=>Math.abs(p.v)));
+  const x=d=>padX+(t(d)-t0)/(t1-t0)*(W-2*padX);
+  const y=v=>padT+(mx-v)/(2*mx)*(Ht-padT-padB);
+  const zeroY=y(0), x0=x(H[0].d).toFixed(1), xN=x(H[H.length-1].d).toFixed(1);
+  const line=H.map((p,i)=>`${i?'L':'M'}${x(p.d).toFixed(1)} ${y(p.v).toFixed(1)}`).join(' ');
+  const posTop='L'+H.map(p=>`${x(p.d).toFixed(1)} ${y(Math.max(p.v,0)).toFixed(1)}`).join(' L');
+  const negTop='L'+H.map(p=>`${x(p.d).toFixed(1)} ${y(Math.min(p.v,0)).toFixed(1)}`).join(' L');
+  const pos=`<path d="M${x0} ${zeroY.toFixed(1)} ${posTop} L${xN} ${zeroY.toFixed(1)} Z" fill="var(--pos)" opacity="0.22"/>`;
+  const neg=`<path d="M${x0} ${zeroY.toFixed(1)} ${negTop} L${xN} ${zeroY.toFixed(1)} Z" fill="var(--neg)" opacity="0.22"/>`;
+  const zero=`<line x1="${padX}" y1="${zeroY.toFixed(1)}" x2="${W-padX}" y2="${zeroY.toFixed(1)}" stroke="var(--hairline2)" stroke-dasharray="3 3"/>`;
+  const last=H[H.length-1], dot=`<circle cx="${xN}" cy="${y(last.v).toFixed(1)}" r="3.5" fill="#fff"/>`;
+  const lbl=`<text x="${padX+2}" y="${padT+8}" fill="var(--pos)" style="font:9px var(--mono)">cuts ▲</text><text x="${padX+2}" y="${(Ht-padB+9).toFixed(1)}" fill="var(--neg)" style="font:9px var(--mono)">hikes ▼</text>`;
+  let ticks=''; const y0=+H[0].d.slice(0,4), y1=+last.d.slice(0,4);
+  for(let yr=y0+1;yr<=y1;yr++){const xx=x(yr+'-01-01');if(xx>padX+14&&xx<W-padX)ticks+=`<text x="${xx.toFixed(1)}" y="${Ht-4}" text-anchor="middle" fill="var(--muted)" style="font:9px var(--mono)">${yr}</text>`;}
+  return `<svg viewBox="0 0 ${W} ${Ht}" style="width:100%;height:auto;display:block">${zero}${pos}${neg}<path d="${line}" fill="none" stroke="#c9d2e0" stroke-width="1.2" opacity="0.85"/>${dot}${lbl}${ticks}</svg>`;
+}
 function fedPanel(d){
   const bc={green:'var(--pos)',red:'var(--neg)',amber:'var(--hibeta)'}[d.color]||'var(--muted)';
   const chips=d.path.map(p=>`<div class="fedchip">
@@ -391,6 +412,9 @@ function fedPanel(d){
     <div class="fedbody">
       <div class="fedimplied">Market is pricing <b style="color:${cutCol(d.cuts_1y)}">${cutTxt(d.cuts_1y)}</b> over the next 12 months
         <span class="muted">— implied by the Treasury curve</span></div>
+      ${d.history&&d.history.length?`<div class="kick" style="margin:16px 0 4px">How expectations shifted over time <span class="muted" style="text-transform:none;letter-spacing:0">· weekly, ~5 years · <span style="color:var(--pos)">green = pricing cuts</span>, <span style="color:var(--neg)">red = pricing hikes</span></span></div>
+      <div class="fedhist">${fedHistChart(d.history)}</div>`:''}
+      <div class="kick" style="margin:16px 0 6px">By horizon</div>
       <div class="fedchips">${chips}</div>
       <div class="kick" style="margin:16px 0 6px">Expected path across FOMC meetings <span class="muted" style="text-transform:none;letter-spacing:0">· cumulative cuts(+)/hikes(−) priced by each date</span></div>
       <div class="fedmeets">${meet}</div>

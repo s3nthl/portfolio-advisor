@@ -11,6 +11,8 @@ from __future__ import annotations
 import time
 from datetime import date, timedelta
 
+import pandas as pd
+
 from recession.ingest import fred_client
 
 # FOMC decision days (second meeting day). 2026 published; early-2027 tentative.
@@ -31,6 +33,30 @@ def _latest(series_id: str, start: str) -> float | None:
         return round(float(df["value"].iloc[-1]), 2) if len(df) else None
     except Exception:
         return None
+
+
+def _series(series_id: str, start: str) -> pd.Series | None:
+    try:
+        df = fred_client.get_observations(series_id, start=start).dropna()
+        if df.empty:
+            return None
+        s = df.set_index("obs_date")["value"]
+        s.index = pd.to_datetime(s.index)
+        return s
+    except Exception:
+        return None
+
+
+def _implied_history(start: str) -> list[dict]:
+    """Weekly market-implied 12-mo policy expectation over time: (EFFR − 1y yield)
+    / 25bp = net cuts(+)/hikes(−) the curve priced at each date. Shows the shift."""
+    dff, dgs1 = _series("DFF", start), _series("DGS1", start)
+    if dff is None or dgs1 is None:
+        return []
+    idx = dff.index.union(dgs1.index)
+    implied = (dff.reindex(idx).ffill() - dgs1.reindex(idx).ffill()) / 0.25
+    wk = implied.resample("W").last().dropna()
+    return [{"d": str(d.date()), "v": round(float(v), 2)} for d, v in wk.items()]
 
 
 def _interp(pts: list[tuple[float, float]], t: float) -> float:
@@ -80,8 +106,10 @@ def compute(force: bool = False) -> dict:
         if len(meetings) >= 8:
             break
 
+    hist_start = (date.today() - timedelta(days=1825)).isoformat()   # ~5y of history
     out = {"status": "ok", "as_of": date.today().isoformat(), "effr": effr,
            "upper": upper, "lower": lower, "regime": regime, "color": color,
-           "cuts_1y": c1y, "path": path, "meetings": meetings}
+           "cuts_1y": c1y, "path": path, "meetings": meetings,
+           "history": _implied_history(hist_start)}
     _CACHE.update(t=now, v=out)
     return out

@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import config
+import api.app as apimod
 from api.app import app
 
 
@@ -16,6 +17,10 @@ from api.app import app
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "CHAI_SOURCE", "fixture")
     monkeypatch.setattr(config, "CHAI_DB_PATH", tmp_path / "api_test.db")
+    # tests need each /api/refresh to actually pull+write (delta needs 2 snapshots);
+    # disable the production TTL cache and reset any warm payload for isolation.
+    monkeypatch.setattr(apimod, "_REFRESH_TTL", 0)
+    apimod._REFRESH_CACHE.update(t=0.0, payload=None)
     # Keep tests offline: no Finnhub network calls (falls back to static reference).
     monkeypatch.setattr(config, "FINNHUB_API_KEY", "")
     monkeypatch.setattr(config, "FINNHUB_CACHE_PATH", tmp_path / "finnhub_cache.json")
