@@ -5,6 +5,9 @@ ingests); pass ?refresh=1 to recompute.
 """
 from __future__ import annotations
 
+import pickle
+import threading
+
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter
@@ -18,6 +21,51 @@ from recession.store import db
 
 router = APIRouter(prefix="/api/recession")
 _C: dict = {}
+
+# --- caching / warming --------------------------------------------------------
+# _compute() is a ~2s point-in-time backtest whose result depends ONLY on the
+# contents of observations.db (which changes only on a manual re-ingest). So we
+# cache it three ways: in-process (_C), on disk (survives restarts), and warmed
+# in a background thread at startup so the first page click finds it ready.
+_LOCK = threading.Lock()
+_STATE: dict = {"ready": False, "computing": False, "sig": None, "warming": False}
+_CACHE_FILE = config.DATA_DIR / "_compute_cache.pkl"
+
+
+def _db_sig() -> str | None:
+    """Cheap fingerprint of the store: total rows + newest obs date. Changes iff
+    data was re-ingested, so a matching sig means the cached compute is still valid."""
+    try:
+        with db.connect() as c:
+            row = c.execute(
+                "SELECT COUNT(*), MAX(obs_date) FROM observations WHERE vintage_date=?",
+                (db.LATEST_VINTAGE,)).fetchone()
+        return f"{row[0]}:{row[1]}" if row else None
+    except Exception:
+        return None
+
+
+def _load_disk(sig: str) -> bool:
+    """Populate _C from the on-disk pickle if it matches the current data sig."""
+    try:
+        if not _CACHE_FILE.exists():
+            return False
+        blob = pickle.loads(_CACHE_FILE.read_bytes())
+        if blob.get("sig") != sig:
+            return False
+        _C.clear(); _C.update(blob["C"])
+        _STATE.update(ready=True, sig=sig)
+        return True
+    except Exception:
+        return False
+
+
+def _save_disk(sig: str) -> None:
+    try:
+        config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+        _CACHE_FILE.write_bytes(pickle.dumps({"sig": sig, "C": dict(_C)}))
+    except Exception:
+        pass
 
 
 def _compute() -> None:
@@ -47,9 +95,63 @@ def _compute() -> None:
 
 
 def _ensure(refresh: bool = False) -> None:
-    if refresh or "comp" not in _C:
-        _C.clear() if refresh else None
-        _compute()
+    sig = _db_sig()
+    if not refresh and _STATE["ready"] and _STATE["sig"] == sig and "comp" in _C:
+        return
+    with _LOCK:
+        # re-check inside the lock: another thread may have finished while we waited
+        if not refresh and _STATE["ready"] and _STATE["sig"] == sig and "comp" in _C:
+            return
+        if not refresh and _load_disk(sig):
+            return
+        _STATE["computing"] = True
+        try:
+            _C.clear()
+            _compute()
+            _STATE.update(ready=True, sig=sig)
+            _save_disk(sig)
+        finally:
+            _STATE["computing"] = False
+
+
+def _warm() -> None:
+    """Background warm — never raises; used at startup and on ?warm=1."""
+    try:
+        _ensure()
+        from recession import fed
+        fed.compute()          # also prime the Fed-path (Treasury) cache
+    except Exception:
+        pass
+    finally:
+        _STATE["warming"] = False
+
+
+def warm() -> None:
+    """Kick a one-shot background warm if the model isn't ready and none is running."""
+    if not config.FRED_API_KEY or _STATE["warming"]:
+        return
+    sig = _db_sig()
+    if _STATE["ready"] and _STATE["sig"] == sig:
+        return
+    _STATE["warming"] = True
+    threading.Thread(target=_warm, daemon=True).start()
+
+
+@router.get("/status")
+def status(warm: bool = False) -> JSONResponse:
+    """Lightweight readiness probe for the page to poll — never triggers compute
+    on the request thread (that would defeat the point). ?warm=1 spawns the
+    background compute if it isn't ready yet."""
+    if not config.FRED_API_KEY:
+        return JSONResponse({"ready": False, "no_key": True})
+    sig = _db_sig()
+    ready = _STATE["ready"] and _STATE["sig"] == sig and "comp" in _C and _CACHE_FILE.exists()
+    # cheap upgrade: if a fresh disk cache exists, adopt it without recomputing
+    if not ready and not _STATE["computing"] and _load_disk(sig):
+        ready = True
+    if warm and not ready:
+        globals()["warm"]()
+    return JSONResponse({"ready": ready, "computing": _STATE["computing"]})
 
 
 def _at(series: pd.Series, dt) -> float | None:

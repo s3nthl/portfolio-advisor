@@ -456,8 +456,23 @@ function positionCarousel(){
 document.addEventListener('keydown',e=>{ if(!document.querySelector('.carousel')) return;
   if(e.key==='ArrowLeft') recStep(-1); if(e.key==='ArrowRight') recStep(1); });
 
+const _sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function _waitReady(refresh){
+  // Poll the lightweight status probe (which warms in the background) so the page
+  // shows progress instead of hanging on a ~2s cold compute. Skipped on a forced
+  // recompute (that request does the work itself).
+  if(refresh) return;
+  const app=document.getElementById('app');
+  for(let i=0;i<40;i++){
+    let st; try{ st=await (await fetch('/api/recession/status?warm=1')).json(); }catch(e){ break; }
+    if(st.no_key||st.ready) return;
+    app.innerHTML='<div class="ccmsg">Building the macro model… <span class="muted">(first load after a restart — a couple of seconds)</span></div>';
+    await _sleep(700);
+  }
+}
 async function load(refresh){
   try{
+    await _waitReady(refresh);
     const d=await (await fetch('/api/recession/full'+(refresh?'?refresh=1':''))).json();
     if(d.status==='no_key'){ document.getElementById('app').innerHTML='<div class="ccmsg">Add <code>FRED_API_KEY</code> to .env to enable the macro monitor.</div>'; return; }
     if(d.status!=='ok'){ document.getElementById('app').innerHTML=`<div class="ccmsg">Macro monitor: ${d.detail||d.status}</div>`; return; }

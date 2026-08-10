@@ -1928,11 +1928,21 @@ function gexWallsTable(walls){
 let _recLoaded=false;
 const REC_BANDS=[[0,20,'Expansion','var(--pos)'],[20,40,'Mid-cycle','var(--accent2)'],[40,60,'Late-cycle','var(--hibeta)'],[60,80,'Warning','var(--tier-agg)'],[80,100,'Contraction','var(--neg)']];
 function recBandColor(s){ for(const b of REC_BANDS){ if(s>=b[0]&&s<b[1]) return b[3]; } return 'var(--neg)'; }
+async function _recWaitReady(){
+  // Warm + poll the macro model so a cold load (after a server restart) shows
+  // progress instead of hanging; returns as soon as the disk/in-proc cache is ready.
+  for(let i=0;i<40;i++){
+    let st; try{ st=await (await fetch('/api/recession/status?warm=1')).json(); }catch(e){ return; }
+    if(st.no_key||st.ready) return;
+    await new Promise(r=>setTimeout(r,700));
+  }
+}
 async function loadRecession(force){
   if(_recLoaded && !force) return;
   const host=document.getElementById('rec-body');
   host.innerHTML='<div class="ccmsg">⟳ Scoring 25 macro series to 1969…</div>';
   try{
+    await _recWaitReady();
     const [m,h,b]=await Promise.all([
       fetch('/api/recession/meter').then(r=>r.json()),
       fetch('/api/recession/history').then(r=>r.json()),

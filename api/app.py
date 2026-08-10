@@ -57,8 +57,17 @@ app = FastAPI(title="s3nthl portfolio dashboard", version="0.5.0")
 
 # Recession Monitor — self-contained macro module, mounted under /api/recession.
 try:
-    from recession.api import router as _recession_router
+    from recession.api import router as _recession_router, warm as _warm_recession
     app.include_router(_recession_router)
+
+    @app.on_event("startup")
+    def _warm_macro_on_startup() -> None:
+        # Build the macro model in the background at boot so the first click on
+        # the Macro tab finds it cached (disk cache also survives restarts).
+        try:
+            _warm_recession()
+        except Exception as _e:
+            print(f"[recession] warm skipped: {_e}")
 except Exception as _exc:  # never let the macro module break the wheel app
     print(f"[recession] router not mounted: {_exc}")
 

@@ -8,11 +8,13 @@ horizon. Purely FRED, purely free. This is market-IMPLIED, not CME's odds.
 """
 from __future__ import annotations
 
+import pickle
 import time
 from datetime import date, timedelta
 
 import pandas as pd
 
+from recession import config
 from recession.ingest import fred_client
 
 # FOMC decision days (second meeting day). 2026 published; early-2027 tentative.
@@ -24,7 +26,20 @@ FOMC_DATES = [
 
 _HORIZONS = [(3, "3 mo", "DGS3MO"), (6, "6 mo", "DGS6MO"), (12, "1 yr", "DGS1"), (24, "2 yr", "DGS2")]
 _CACHE: dict = {}
-_TTL = 6 * 3600
+_TTL = 12 * 3600   # Treasury-implied path moves slowly; stale-while-revalidate below
+_CACHE_FILE = config.DATA_DIR / "_fedpath_cache.pkl"
+
+
+def _load_disk() -> None:
+    """Seed the in-process cache from disk so a restart doesn't re-hit FRED."""
+    if _CACHE.get("v") is not None:
+        return
+    try:
+        if _CACHE_FILE.exists():
+            blob = pickle.loads(_CACHE_FILE.read_bytes())
+            _CACHE.update(t=blob["t"], v=blob["v"])
+    except Exception:
+        pass
 
 
 def _latest(series_id: str, start: str) -> float | None:
@@ -69,11 +84,36 @@ def _interp(pts: list[tuple[float, float]], t: float) -> float:
     return pts[-1][1]
 
 
-def compute(force: bool = False) -> dict:
-    now = time.time()
-    if not force and _CACHE.get("t") and now - _CACHE["t"] < _TTL:
-        return _CACHE["v"]
+_REFRESHING = {"on": False}
 
+
+def compute(force: bool = False) -> dict:
+    """Stale-while-revalidate: return the cached path instantly and, if it's
+    stale, refresh it in the background — so the ~9 sequential FRED calls (~30s
+    cold) never block a page load after the first-ever compute."""
+    now = time.time()
+    if not force:
+        _load_disk()
+        cached = _CACHE.get("v")
+        age = now - (_CACHE.get("t") or 0)
+        if cached is not None:
+            if age >= _TTL and not _REFRESHING["on"]:
+                _REFRESHING["on"] = True
+                import threading
+                threading.Thread(target=_do_compute, daemon=True).start()
+            return cached
+    return _do_compute()
+
+
+def _do_compute() -> dict:
+    try:
+        return _compute_impl()
+    finally:
+        _REFRESHING["on"] = False
+
+
+def _compute_impl() -> dict:
+    now = time.time()
     start = (date.today() - timedelta(days=900)).isoformat()
     effr = _latest("DFF", start)
     upper, lower = _latest("DFEDTARU", start), _latest("DFEDTARL", start)
@@ -121,4 +161,9 @@ def compute(force: bool = False) -> dict:
            "cuts_1y": c1y, "path": path, "meetings": meetings,
            "history": _implied_history(hist_start)}
     _CACHE.update(t=now, v=out)
+    try:
+        config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+        _CACHE_FILE.write_bytes(pickle.dumps({"t": now, "v": out}))
+    except Exception:
+        pass
     return out
