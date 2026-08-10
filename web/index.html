@@ -2186,6 +2186,9 @@ function fmtFund(v, unit, axis){
   if(unit==='x') return v.toFixed(1)+'×';
   if(unit==='price') return '$'+(Math.abs(v)<10?v.toFixed(2):v.toFixed(0));
   if(unit==='eps') return '$'+v.toFixed(2);
+  if(unit==='sh'){ const a=Math.abs(v);   // share count — no $, B/M suffix
+    if(a>=1e9) return (a/1e9).toFixed(2)+'B'; if(a>=1e6) return (a/1e6).toFixed(0)+'M';
+    if(a>=1e3) return (a/1e3).toFixed(0)+'K'; return a.toFixed(0); }
   const a=Math.abs(v), sg=v<0?'-':'';
   if(a>=1e12) return sg+'$'+(a/1e12).toFixed(a>=1e13?0:1)+'T';
   if(a>=1e9)  return sg+'$'+(a/1e9).toFixed(a>=1e11?0:1)+'B';
@@ -2295,9 +2298,9 @@ function renderFundamentals(d){
 
   if(!names.length){ grid.innerHTML=`<div class="ccmsg">No fundamentals available for <b>${d.symbol}</b> — this looks like an ETF or fund (it has no company financial statements). Try an individual stock ticker.</div>`; return; }
   const SECTIONS=[
-    ['Valuation & Price', ['Stock Price','Stock Price (period-end)','Stock Price (yr-end)','P/E','P/E (approx)','P/S','P/S (approx)']],
-    ['Growth & Profitability', ['Revenue','Gross Profit','Gross Margin','EBITDA','Operating Income','Net Income','Net Margin','Return on Equity','EPS (diluted)']],
-    ['Cash & Balance Sheet', ['Cash from Operations','Free Cash Flow','Investing Cash Flow','Financing Cash Flow','Total Assets','Shareholder Equity','Long-term Debt','Debt / Equity']],
+    ['Valuation & Price', ['Stock Price','Stock Price (period-end)','Stock Price (yr-end)','P/E','P/E (approx)','P/S','P/S (approx)','Book Value / Share']],
+    ['Growth & Profitability', ['Revenue','Gross Profit','Gross Margin','EBITDA','Operating Income','Operating Margin','Net Income','Net Margin','Effective Tax Rate','R&D Intensity','Return on Equity','Return on Assets','EPS (diluted)','Shares Outstanding']],
+    ['Cash & Balance Sheet', ['Cash from Operations','Free Cash Flow','Investing Cash Flow','Financing Cash Flow','Total Assets','Asset Turnover','Current Ratio','Working Capital','Shareholder Equity','Long-term Debt','Debt / Equity']],
   ];
   const pl={annual:'yearly',quarterly:'quarterly',monthly:'monthly'}[d.period]||d.period;
   const has=k=>M[k]&&(M[k].data||[]).some(x=>x.v!=null);  // hide metrics with no data for this ticker
@@ -2432,14 +2435,23 @@ const FUND_META={
   "Operating Income":{i:'growth',w:"Profit from the core business after all operating costs, but before interest and taxes.",y:"The cleanest read on whether the actual business — not financial engineering — makes money.",r:"Positive and growing is healthy; negative means the core operation loses money."},
   "Net Income":{i:'growth',w:"The bottom line — what's left after every single cost, including interest and taxes.",y:"This is the real profit that belongs to shareholders. Everything ultimately rolls up to here.",r:"You want it positive and growing. A red-glowing tile means the latest year was a loss."},
   "Net Margin":{i:'percent',w:"Net income as a % of revenue — cents of final profit per dollar of sales.",y:"The ultimate efficiency score: how much of each sales dollar actually becomes profit you own.",r:"Higher and rising is better. Best compared against peers in the same industry."},
+  "Operating Margin":{i:'percent',w:"Operating income as a % of revenue — profit from the core business per sales dollar, before interest and taxes.",y:"The cleanest margin read: it strips out financing and one-offs, so it shows whether the actual operation is efficient.",r:"Higher and stable/rising is best. A falling line means costs are outpacing sales."},
+  "Effective Tax Rate":{i:'percent',w:"The share of pre-tax profit paid in income tax.",y:"Explains part of the gap between operating and net income; an unusually low rate can flatter earnings and may not last.",r:"Roughly 15–25% is typical. A sudden drop propping up net income is worth a second look, not a green light."},
+  "R&D Intensity":{i:'percent',w:"Research & development spend as a % of revenue.",y:"Shows how aggressively the company reinvests in future products — high for tech/pharma, near zero for retail/banks.",r:"Higher can mean a strong innovation pipeline, but it also eats today's margin. Judge it against revenue growth."},
   "Return on Equity":{i:'percent',w:"Profit generated for every dollar of shareholder equity (the owners' capital).",y:"Measures how well management turns your invested money into profit. ~15%+ is generally strong.",r:"Higher is better — but sky-high ROE can also come from heavy debt, so glance at Debt/Equity too."},
+  "Return on Assets":{i:'percent',w:"Profit generated per dollar of everything the company owns (its total assets).",y:"Unlike ROE, debt can't flatter it — so it's a cleaner read on how productively the business uses its resources.",r:"Higher is better. Capital-light software runs high; asset-heavy industries run low, so compare within a sector."},
   "EPS (diluted)":{i:'share',w:"Net income divided across every share, including options that could convert — profit per share.",y:"It's the slice you actually own, and the number P/E is built on.",r:"Rising EPS grows the value behind each share you hold."},
+  "Shares Outstanding":{i:'share',w:"The diluted share count each period, adjusted to today's split basis.",y:"It's the denominator behind your ownership: fewer shares (buybacks) lift your slice; more shares (issuance) dilute it.",r:"A falling line is shareholder-friendly (buybacks); a steadily rising line means dilution eating into your stake."},
   "Cash from Operations":{i:'cash',w:"The actual cash the business generated from day-to-day operations — not accounting profit.",y:"Cash is far harder to fake than earnings; this proves the business truly self-funds.",r:"Should be positive and ideally tracking or beating net income."},
   "Free Cash Flow":{i:'cash',w:"Operating cash left after the spending needed to run and grow the business (capex).",y:"This is the money genuinely available for dividends, buybacks, or paying down debt — the real prize.",r:"Positive and growing is the gold standard. (~5y, from FMP.)"},
   "Investing Cash Flow":{i:'cash',w:"Cash spent on or received from investments — mostly buying equipment, property, or other companies.",y:"For a growing company this is normally negative — that's capex, i.e. investing in the future.",r:"Negative here is usually healthy, not a weakness — it's the company building capacity."},
   "Financing Cash Flow":{i:'cash',w:"Cash moving between the company and its investors and lenders — stock, debt, and dividends.",y:"Shows how the company funds itself and how much cash it returns to owners.",r:"Negative often means buybacks or debt paydown (returning cash) — frequently a good sign."},
   "Total Assets":{i:'bank',w:"Everything the company owns — cash, inventory, factories, and goodwill.",y:"The scale of the resources the business controls.",r:"Growing assets can mean expansion; compare against equity and debt to see how they're funded."},
+  "Asset Turnover":{i:'scale',w:"Revenue generated per dollar of total assets — how hard the asset base works.",y:"A capital-efficiency read: two firms with the same profit but different turnover use very different amounts of capital to get there.",r:"Higher means leaner, more productive use of assets. Retailers run high, utilities low — compare within a sector."},
+  "Current Ratio":{i:'scale',w:"Current assets divided by current liabilities — can it cover the next 12 months of bills?",y:"The first-glance solvency check. Below 1.0 means short-term obligations exceed short-term resources.",r:"Above ~1.5 is comfortable; under 1.0 is a liquidity flag. Very high can also mean idle cash."},
+  "Working Capital":{i:'cash',w:"Current assets minus current liabilities — the cash cushion funding day-to-day operations.",y:"Positive means the company can self-fund its operating cycle; negative can be fine for cash-collecting businesses but risky otherwise.",r:"Positive and stable/growing is healthy. A slide toward or below zero is worth watching."},
   "Shareholder Equity":{i:'bank',w:"What owners would be left with if the company sold everything and paid off all debts — its net worth.",y:"It's the accounting value of your ownership stake in the business.",r:"Rising equity means value is being built; falling can signal losses or aggressive buybacks."},
+  "Book Value / Share":{i:'bank',w:"Shareholder equity divided by shares outstanding — the accounting net worth behind each share.",y:"A per-share floor of tangible value, and the base of the price-to-book multiple.",r:"Rising is better. Compare price to it: paying far above book means you're betting on future growth, not assets in hand."},
   "Long-term Debt":{i:'scale',w:"Money the company borrowed that's due more than a year out.",y:"Debt fuels growth but must be serviced; too much is risky when rates rise or sales dip.",r:"Some debt is fine. Judge it against equity (Debt/Equity) and cash flow."},
   "Debt / Equity":{i:'scale',w:"Long-term debt divided by shareholder equity — how leveraged the company is.",y:"Shows how much the business runs on borrowed money vs. owners' capital. Above 1.0 = more debt than equity.",r:"Lower is safer. A rising ratio means growing reliance on debt."},
   "EPS (reported)":{i:'share',w:"The actual earnings-per-share the company reported each quarter, vs. what Wall Street estimated.",y:"Beating or missing the estimate is what usually drives the post-earnings price move — the beat/miss matters as much as the number.",r:"Green = beat estimate, red = missed. Hover a bar for the estimate and surprise %."},
@@ -2499,9 +2511,12 @@ function fundAssess(name,m){
   const last=[...m.data].reverse().find(x=>x.v!=null); if(!last) return null;
   const v=last.v;
   const mk=(tier,word,tip)=>({tier,word,tip});
-  const LEVEL={'Gross Margin':[40,20],'Net Margin':[15,5],'Return on Equity':[15,8]};  // higher better (%)
+  const LEVEL={'Gross Margin':[40,20],'Net Margin':[15,5],'Return on Equity':[15,8],
+               'Operating Margin':[15,5],'Return on Assets':[8,3]};  // higher better (%)
   if(LEVEL[key]){ const[g,o]=LEVEL[key];
     return v>=g?mk('good','good',`${key}: good ≥ ${g}%`):(v>=o?mk('ok','ok',`${key}: ok ${o}–${g}%`):mk('weak','weak',`${key}: weak < ${o}%`)); }
+  if(key==='Current Ratio'){
+    return v>=1.5?mk('good','healthy','≥1.5× — comfortable liquidity'):(v>=1?mk('ok','ok','1–1.5×'):mk('weak','tight','<1× — short-term liabilities exceed assets')); }
   if(key==='Debt / Equity'){ if(v<0) return mk('weak','weak','negative equity');
     return v<=0.5?mk('good','low','lower is better · ≤0.5×'):(v<=1.5?mk('ok','ok','0.5–1.5×'):mk('weak','high','>1.5× — leveraged')); }
   if(key==='P/E'||key==='P/S'){ const med=_median(m.data.map(d=>d.v)); if(!med) return null; const r=v/med;
@@ -2518,7 +2533,7 @@ function fundAssess(name,m){
 }
 function fundCard(name,m){
   const last=[...m.data].reverse().find(x=>x.v!=null);
-  const badge=m.badge?`<span class="fundbadge" title="only ${m.badge==='5y'?'5 years':'5 quarters'} available (FMP — Polygon doesn't carry this line)">${m.badge}</span>`:'';
+  const badge=m.badge?`<span class="fundbadge" title="only ${m.badge==='5y'?'5 years':'5 quarters'} available (FMP — Polygon doesn't carry this line)${m.stale?' · cached '+m.stale+' (FMP rate-limited today)':''}">${m.badge}${m.stale?' ·cached':''}</span>`:'';
   const asmt=fundAssess(name,m);
   const tier=asmt?asmt.tier:'';
   const weak=tier==='weak';

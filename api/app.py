@@ -326,12 +326,16 @@ def api_fundamentals(symbol: str, period: str = "annual") -> JSONResponse:
             # them, so FMP supplies them — but only ~5 periods deep, so badge that
             # shorter depth honestly rather than let it masquerade as 16-year data.
             try:
-                fx = (fmp_fundamentals(symbol, fmp_period).get("metrics") or {})
+                fxr = fmp_fundamentals(symbol, fmp_period)
+                fx = fxr.get("metrics") or {}
                 badge = "5y" if gran == "annual" else "5q"
                 for nm in ("EBITDA", "Free Cash Flow"):
                     mm = fx.get(nm)
                     if mm and any(x.get("v") is not None for x in mm.get("data", [])):
-                        metrics[nm] = {**mm, "badge": badge}
+                        entry = {**mm, "badge": badge}
+                        if fxr.get("stale"):        # served from cache (FMP rate-limited today)
+                            entry["stale"] = fxr.get("stale_as_of")
+                        metrics[nm] = entry
             except Exception:
                 pass
             metrics = {k: v for k, v in metrics.items()   # drop fields with no data for this ticker

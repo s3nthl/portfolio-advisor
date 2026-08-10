@@ -137,20 +137,82 @@ def _build(results: list[dict], splits: list[tuple[str, float]] | None = None) -
         eq, d = _v(b, "equity"), _v(b, "long_term_debt")
         return round(d / eq, 2) if (eq and eq > 0 and d is not None) else None
 
+    # --- metrics derived from the SAME Polygon statements (no extra source) -------
+    def op_margin(i, c, b):  # operating income as % of revenue — core-business efficiency
+        rev, oi = _v(i, "revenues"), _v(i, "operating_income_loss")
+        return (oi / rev * 100) if (rev and oi is not None) else None
+
+    def roa(i, c, b):  # return on assets — profit per dollar of everything owned
+        a, ni = _v(b, "assets"), _v(i, "net_income_loss")
+        return (ni / a * 100) if (a and a > 0 and ni is not None) else None
+
+    def tax_rate(i, c, b):  # effective tax rate = tax / pretax income
+        pre = _v(i, "income_loss_from_continuing_operations_before_tax")
+        tax = _v(i, "income_tax_expense_benefit")
+        return (tax / pre * 100) if (pre and pre > 0 and tax is not None) else None
+
+    def rnd_intensity(i, c, b):  # R&D as % of revenue — how much they reinvest in product
+        rev, rnd = _v(i, "revenues"), _v(i, "research_and_development")
+        return (rnd / rev * 100) if (rev and rnd is not None) else None
+
+    def asset_turnover(i, c, b):  # revenue per dollar of assets — capital efficiency
+        rev, a = _v(i, "revenues"), _v(b, "assets")
+        return round(rev / a, 2) if (rev and a and a > 0) else None
+
+    def current_ratio(i, c, b):  # short-term liquidity — current assets vs current liabilities
+        ca, cl = _v(b, "current_assets"), _v(b, "current_liabilities")
+        return round(ca / cl, 2) if (ca is not None and cl and cl > 0) else None
+
+    def working_capital(i, c, b):  # current assets minus current liabilities (cash cushion)
+        ca, cl = _v(b, "current_assets"), _v(b, "current_liabilities")
+        return (ca - cl) if (ca is not None and cl is not None) else None
+
+    def _shares(i):
+        # Polygon builds the fiscal-Q4 quarterly row as (annual − 9-month), which turns
+        # flow items like the diluted-share average NEGATIVE/garbage. Reject non-positive
+        # counts so Q4 shows a gap instead of a nonsense value.
+        shs = _v(i, "diluted_average_shares")
+        if shs is None or shs <= 0:
+            shs = _v(i, "basic_average_shares")
+        return shs if (shs and shs > 0) else None
+
+    def bvps_series():  # book value per share — equity ÷ split-adjusted diluted shares
+        out = []
+        for (lbl, i, c, b), f in zip(inc, factors):
+            eq, shs = _v(b, "equity"), _shares(i)
+            out.append({"label": lbl, "v": (eq / (shs * f)) if (eq is not None and shs and f) else None})
+        return out
+
+    def shares_series():  # diluted share count in today's split terms — dilution vs buybacks
+        out = []
+        for (lbl, i, c, b), f in zip(inc, factors):
+            shs = _shares(i)
+            out.append({"label": lbl, "v": (shs * f) if (shs is not None and f) else None})
+        return out
+
     metrics = {
         "Revenue":            {"unit": "$", "good": True,  "kind": "bar", "data": series(lambda i, c, b: _v(i, "revenues"))},
         "Gross Profit":       {"unit": "$", "good": True,  "kind": "bar", "data": series(lambda i, c, b: _v(i, "gross_profit"))},
         "Gross Margin":       {"unit": "%", "good": True,  "kind": "bar", "data": series(margin)},
         "Operating Income":   {"unit": "$", "good": True,  "kind": "bar", "data": series(lambda i, c, b: _v(i, "operating_income_loss"))},
+        "Operating Margin":   {"unit": "%", "good": True,  "kind": "bar", "data": series(op_margin)},
         "Net Income":         {"unit": "$", "good": True,  "kind": "bar", "data": series(lambda i, c, b: _v(i, "net_income_loss"))},
         "Net Margin":         {"unit": "%", "good": True,  "kind": "bar", "data": series(net_margin)},
+        "Effective Tax Rate": {"unit": "%", "good": False, "kind": "bar", "data": series(tax_rate)},
+        "R&D Intensity":      {"unit": "%", "good": True,  "kind": "bar", "data": series(rnd_intensity)},
         "Return on Equity":   {"unit": "%", "good": True,  "kind": "bar", "data": series(roe)},
+        "Return on Assets":   {"unit": "%", "good": True,  "kind": "bar", "data": series(roa)},
         "EPS (diluted)":      {"unit": "eps", "good": True, "kind": "bar", "data": eps_series()},
+        "Shares Outstanding": {"unit": "sh", "good": False, "kind": "bar", "data": shares_series()},
         "Cash from Operations": {"unit": "$", "good": True, "kind": "bar", "data": series(lambda i, c, b: _v(c, "net_cash_flow_from_operating_activities"))},
         "Investing Cash Flow": {"unit": "$", "good": False, "kind": "bar", "data": series(lambda i, c, b: _v(c, "net_cash_flow_from_investing_activities"))},
         "Financing Cash Flow": {"unit": "$", "good": False, "kind": "bar", "data": series(lambda i, c, b: _v(c, "net_cash_flow_from_financing_activities"))},
         "Total Assets":       {"unit": "$", "good": True, "kind": "bar", "data": series(lambda i, c, b: _v(b, "assets"))},
+        "Asset Turnover":     {"unit": "x", "good": True, "kind": "bar", "data": series(asset_turnover)},
+        "Current Ratio":      {"unit": "x", "good": True, "kind": "bar", "data": series(current_ratio)},
+        "Working Capital":    {"unit": "$", "good": True, "kind": "bar", "data": series(working_capital)},
         "Shareholder Equity": {"unit": "$", "good": True, "kind": "bar", "data": series(lambda i, c, b: _v(b, "equity"))},
+        "Book Value / Share": {"unit": "eps", "good": True, "kind": "bar", "data": bvps_series()},
         "Long-term Debt":     {"unit": "$", "good": False, "kind": "bar", "data": series(lambda i, c, b: _v(b, "long_term_debt"))},
         "Debt / Equity":      {"unit": "x", "good": False, "kind": "bar", "data": series(debt_equity)},
     }
@@ -159,7 +221,7 @@ def _build(results: list[dict], splits: list[tuple[str, float]] | None = None) -
     basis = []
     for r, f in zip(rows, factors):
         inc_s = r.get("financials", {}).get("income_statement", {})
-        eps, shs = _v(inc_s, "diluted_earnings_per_share"), _v(inc_s, "diluted_average_shares")
+        eps, shs = _v(inc_s, "diluted_earnings_per_share"), _shares(inc_s)
         basis.append({"date": r.get("end_date"),
                       "eps": (eps / f) if (eps is not None and f) else eps,
                       "revenue": _v(inc_s, "revenues"),

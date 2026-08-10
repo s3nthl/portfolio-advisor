@@ -416,4 +416,13 @@ def fundamentals(symbol: str, period: str = "quarter", force: bool = False) -> d
                 config.FMP_FUND_CACHE_PATH.write_text(json.dumps(cache))
             except Exception:
                 pass
+            return data
+
+    # Live fetch produced nothing (usually a 429 daily-quota hit on the free tier).
+    # Fall back to the most recent cached copy — badged stale — so EBITDA / FCF don't
+    # blank out for the rest of the day just because we're rate-limited right now.
+    prev = cache.get(ck, {}).get("data")
+    if prev and prev.get("metrics"):
+        stale = {**prev, "stale": True, "stale_as_of": cache[ck].get("as_of")}
+        return stale
     return data
