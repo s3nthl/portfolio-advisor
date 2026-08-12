@@ -136,11 +136,15 @@ def _ask_anthropic(system: str, msgs: list[dict]) -> dict:
 
 def _ask_openrouter(system: str, msgs: list[dict]) -> dict:
     import httpx
+    # reasoning:{enabled:false} — OpenRouter otherwise routes Claude with extended
+    # thinking on some requests, and the hidden reasoning tokens eat the whole
+    # max_tokens budget before any answer text (finish=length, empty content).
     r = httpx.post("https://openrouter.ai/api/v1/chat/completions",
                    headers={"Authorization": f"Bearer {config.OPENROUTER_API_KEY}",
                             "content-type": "application/json",
                             "HTTP-Referer": "https://localhost", "X-Title": "s3nthl portfolio dashboard"},
                    json={"model": config.CHAI_AI_MODEL_OR, "max_tokens": config.CHAI_AI_MAX_TOKENS,
+                         "reasoning": {"enabled": False},
                          "messages": [{"role": "system", "content": system}] + msgs}, timeout=90.0)
     if r.status_code == 200:
         j = r.json()
@@ -176,10 +180,12 @@ def ask(messages: list[dict], context: dict) -> dict:
     msgs = [{"role": ("assistant" if m.get("role") == "assistant" else "user"),
              "content": str(m.get("content", ""))[:6000]}
             for m in (messages or []) if str(m.get("content", "")).strip()]
+    msgs = msgs[-16:]                      # keep recent turns so the prompt stays bounded
+    while msgs and msgs[0]["role"] == "assistant":
+        msgs.pop(0)                        # Anthropic requires the first message to be 'user'
     if not msgs:
         return {"error": "empty", "detail": "Ask a question first."}
 
-    system = _SYSTEM + "\n\n=== LIVE DASHBOARD DATA (JSON) ===\n" + _compact(context or {})
     have = {"anthropic": bool(config.ANTHROPIC_API_KEY), "openrouter": bool(config.OPENROUTER_API_KEY)}
     order = [provider()] + [p for p in ("anthropic", "openrouter") if p != provider()]
     order = [p for p in order if have.get(p) and p not in _DEAD]
@@ -188,18 +194,29 @@ def ask(messages: list[dict], context: dict) -> dict:
                 "detail": "Both AI providers are out of credits this session. Add credits to your "
                           "Anthropic or OpenRouter account, then restart the server."}
 
+    # Try providers in order; if every one comes back empty (usually an oversized
+    # prompt leaving no room for the answer), retry the whole set once with a much
+    # tighter context so the user still gets an answer instead of a dead end.
     last = {"error": "unknown", "detail": "no provider responded."}
-    for p in order:
-        try:
-            res = _call(p, system, msgs)
-        except Exception as exc:
-            last = {"error": "network", "detail": f"{p}: {exc}"}
-            continue
-        if "answer" in res:
-            return res
-        if res.get("error") == "credits":
-            _DEAD.add(p)   # don't retry a broke provider this session
-        last = res
+    for limit in (140_000, 40_000):
+        system = _SYSTEM + "\n\n=== LIVE DASHBOARD DATA (JSON) ===\n" + _compact(context or {}, limit=limit)
+        all_empty = True
+        for p in order:
+            try:
+                res = _call(p, system, msgs)
+            except Exception as exc:
+                last = {"error": "network", "detail": f"{p}: {exc}"}; all_empty = False
+                continue
+            if "answer" in res:
+                return res
+            if res.get("error") == "credits":
+                _DEAD.add(p)   # don't retry a broke provider this session
+            if res.get("error") != "empty":
+                all_empty = False
+            last = res
+        order = [p for p in order if p not in _DEAD]
+        if not all_empty or not order:
+            break
     return last
 
 
