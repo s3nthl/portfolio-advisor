@@ -95,7 +95,7 @@ CHAI_AI_MODEL_OR = os.getenv("CHAI_AI_MODEL_OR", "anthropic/claude-sonnet-5")  #
 # Force a provider: "anthropic" | "openrouter" | "" (auto: Anthropic first, then
 # fall back to OpenRouter if Anthropic errors on auth/billing).
 CHAI_AI_PROVIDER = os.getenv("CHAI_AI_PROVIDER", "").strip().lower()
-CHAI_AI_MAX_TOKENS = int(os.getenv("CHAI_AI_MAX_TOKENS", "2200"))
+CHAI_AI_MAX_TOKENS = int(os.getenv("CHAI_AI_MAX_TOKENS", "4000"))   # room for a thorough answer
 # Company briefs are stable (business models don't change daily) -> cache for weeks.
 COMPANY_BRIEF_CACHE_PATH = _path(os.getenv("COMPANY_BRIEF_CACHE_PATH", "company_brief_cache.json"))
 CHAI_BRIEF_TTL_DAYS = int(os.getenv("CHAI_BRIEF_TTL_DAYS", "30"))

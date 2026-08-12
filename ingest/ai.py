@@ -108,6 +108,12 @@ def _err(r) -> dict:
         detail = r.json().get("error", {}).get("message", "") or r.text[:200]
     except Exception:
         detail = r.text[:200]
+    # "credit balance too low" comes back as a 400 invalid_request — flag it distinctly
+    # so the UI can say "add credits" and so callers reliably fail over to the other provider.
+    if r.status_code == 400 and "credit balance" in detail.lower():
+        return {"error": "credits",
+                "detail": "Anthropic credits exhausted — add credits at console.anthropic.com "
+                          "(Plans & Billing), or the app will use your OpenRouter key."}
     return {"error": "api", "detail": f"HTTP {r.status_code}: {detail}"}
 
 
@@ -119,9 +125,12 @@ def _ask_anthropic(system: str, msgs: list[dict]) -> dict:
                    json={"model": config.CHAI_AI_MODEL, "max_tokens": config.CHAI_AI_MAX_TOKENS,
                          "system": system, "messages": msgs}, timeout=90.0)
     if r.status_code == 200:
-        parts = [b.get("text", "") for b in r.json().get("content", []) if b.get("type") == "text"]
-        return {"answer": "\n".join(parts).strip() or "(no response)",
-                "model": config.CHAI_AI_MODEL, "via": "anthropic"}
+        j = r.json()
+        parts = [b.get("text", "") for b in j.get("content", []) if b.get("type") == "text"]
+        txt = "\n".join(parts).strip()
+        if not txt:   # empty 200 (e.g. refusal / max_tokens with no text) — a failure, so it fails over
+            return {"error": "empty", "detail": f"Claude returned no text (stop_reason={j.get('stop_reason')})."}
+        return {"answer": txt, "model": config.CHAI_AI_MODEL, "via": "anthropic"}
     return _err(r)
 
 
@@ -134,17 +143,34 @@ def _ask_openrouter(system: str, msgs: list[dict]) -> dict:
                    json={"model": config.CHAI_AI_MODEL_OR, "max_tokens": config.CHAI_AI_MAX_TOKENS,
                          "messages": [{"role": "system", "content": system}] + msgs}, timeout=90.0)
     if r.status_code == 200:
-        ch = (r.json().get("choices") or [{}])[0]
-        txt = (ch.get("message") or {}).get("content", "")
-        return {"answer": (txt or "").strip() or "(no response)",
-                "model": config.CHAI_AI_MODEL_OR, "via": "openrouter"}
+        j = r.json()
+        if j.get("error"):   # OpenRouter tunnels some errors inside a 200 body
+            return {"error": "api", "detail": str(j["error"].get("message") or j["error"])[:200]}
+        ch = (j.get("choices") or [{}])[0]
+        txt = ((ch.get("message") or {}).get("content", "") or "").strip()
+        if not txt:
+            return {"error": "empty", "detail": f"OpenRouter returned no text (finish={ch.get('finish_reason')})."}
+        return {"answer": txt, "model": config.CHAI_AI_MODEL_OR, "via": "openrouter"}
     return _err(r)
 
 
+# Once a provider reports exhausted credits, skip it for the rest of the process so
+# every subsequent question doesn't eat a guaranteed-failing round-trip first.
+_DEAD: set[str] = set()
+
+
+def _call(which: str, system: str, msgs: list[dict]) -> dict:
+    return _ask_anthropic(system, msgs) if which == "anthropic" else _ask_openrouter(system, msgs)
+
+
 def ask(messages: list[dict], context: dict) -> dict:
-    """Send the conversation + dashboard context to Claude. Returns {answer} or {error}."""
-    prov = provider()
-    if not prov:
+    """Send the conversation + dashboard context to Claude, trying both providers.
+
+    Returns {answer, via, model} or {error, detail}. Order: preferred provider first,
+    then the other on ANY failure (credits, empty, network) — so a dead Anthropic
+    balance transparently rides on the OpenRouter key.
+    """
+    if not provider():
         return {"error": "no_key",
                 "detail": "No AI key configured. Add ANTHROPIC_API_KEY (or OPENROUTER_API_KEY) to your .env."}
     msgs = [{"role": ("assistant" if m.get("role") == "assistant" else "user"),
@@ -154,18 +180,27 @@ def ask(messages: list[dict], context: dict) -> dict:
         return {"error": "empty", "detail": "Ask a question first."}
 
     system = _SYSTEM + "\n\n=== LIVE DASHBOARD DATA (JSON) ===\n" + _compact(context or {})
-    try:
-        if prov == "anthropic":
-            res = _ask_anthropic(system, msgs)
-            # Anthropic unusable (no credits / bad key)? fall back to OpenRouter if present.
-            if "answer" not in res and config.OPENROUTER_API_KEY:
-                alt = _ask_openrouter(system, msgs)
-                if "answer" in alt:
-                    return alt
+    have = {"anthropic": bool(config.ANTHROPIC_API_KEY), "openrouter": bool(config.OPENROUTER_API_KEY)}
+    order = [provider()] + [p for p in ("anthropic", "openrouter") if p != provider()]
+    order = [p for p in order if have.get(p) and p not in _DEAD]
+    if not order:  # both keys previously hit exhausted credits this session
+        return {"error": "credits",
+                "detail": "Both AI providers are out of credits this session. Add credits to your "
+                          "Anthropic or OpenRouter account, then restart the server."}
+
+    last = {"error": "unknown", "detail": "no provider responded."}
+    for p in order:
+        try:
+            res = _call(p, system, msgs)
+        except Exception as exc:
+            last = {"error": "network", "detail": f"{p}: {exc}"}
+            continue
+        if "answer" in res:
             return res
-        return _ask_openrouter(system, msgs)
-    except Exception as exc:
-        return {"error": "network", "detail": str(exc)}
+        if res.get("error") == "credits":
+            _DEAD.add(p)   # don't retry a broke provider this session
+        last = res
+    return last
 
 
 # --------------------------------------------------------------------------- #

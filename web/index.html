@@ -1114,7 +1114,11 @@ async function askAI(q){
       body:JSON.stringify({messages:hist, context:_aiCtx})});
     const d=await r.json();
     _aiMessages=_aiMessages.filter(m=>m.role!=='pending');
-    if(d.answer) _aiMessages.push({role:'assistant',content:d.answer});
+    if(d.answer){
+      _aiMessages.push({role:'assistant',content:d.answer});
+      const note=document.getElementById('ai-note-model');   // show the model/provider that actually answered
+      if(note&&d.model) note.textContent='model: '+d.model+(d.via==='openrouter'?' · via OpenRouter':'');
+    }
     else _aiMessages.push({role:'error',content:(d.detail||d.error||'Something went wrong.')});
   }catch(e){
     _aiMessages=_aiMessages.filter(m=>m.role!=='pending');

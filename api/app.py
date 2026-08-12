@@ -669,7 +669,21 @@ async def api_ask(request: Request) -> JSONResponse:
         body = await request.json()
     except Exception:
         return JSONResponse({"error": "bad_request", "detail": "invalid JSON"}, status_code=400)
-    res = ai_ask(body.get("messages") or [], body.get("context") or {})
+    context = body.get("context") or {}
+    # "Read all my positions" must work even if the user never opened those tabs or
+    # the page hasn't refreshed: always inject the latest full dashboard payload
+    # (positions, buckets, sectors, waterfall) server-side so the AI sees the book.
+    if not (context.get("dashboard") or {}):
+        payload = _REFRESH_CACHE.get("payload")
+        if payload is None:
+            try:
+                import json as _json
+                payload = _json.loads(api_refresh().body)
+            except Exception:
+                payload = None
+        if payload and "error" not in payload:
+            context = {**context, "dashboard": payload}
+    res = ai_ask(body.get("messages") or [], context)
     status = 200 if "answer" in res else (401 if res.get("error") == "auth" else 200)
     return JSONResponse(res, status_code=status)
 
