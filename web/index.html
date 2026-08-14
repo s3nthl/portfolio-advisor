@@ -170,6 +170,19 @@
   #fund-lookup{background:var(--panel3);color:var(--txt);border:1px solid var(--hairline2);border-radius:var(--r-sm);padding:8px 12px;font-family:var(--mono);font-size:13px;width:140px;text-transform:uppercase;transition:border-color .16s,box-shadow .16s}
   #fund-lookup:focus{outline:none;border-color:var(--accent);box-shadow:var(--glow)}
   #fund-lookup::placeholder{color:var(--muted);text-transform:none}
+  /* holdings wheel — click through every holding, alphabetical */
+  .fundwheel{display:flex;align-items:center;gap:8px;margin:2px 0 4px}
+  .fwtrack{display:flex;gap:7px;overflow-x:auto;scroll-behavior:smooth;padding:3px 2px;flex:1;scrollbar-width:none}
+  .fwtrack::-webkit-scrollbar{display:none}
+  .fwchip{flex:0 0 auto;background:var(--panel2);border:1px solid var(--hairline2);color:var(--muted);
+    border-radius:999px;padding:6px 14px;font-family:var(--mono);font-weight:700;font-size:12.5px;cursor:pointer;
+    letter-spacing:.3px;transition:color .15s,border-color .15s,background .15s,transform .1s}
+  .fwchip:hover{color:var(--txt);border-color:var(--accent);background:rgba(91,151,245,.08)}
+  .fwchip.active{color:#fff;border-color:var(--accent);background:var(--accent);box-shadow:var(--glow)}
+  .fwarrow{flex:0 0 auto;width:30px;height:30px;border-radius:50%;border:1px solid var(--hairline2);
+    background:var(--panel3);color:var(--muted);font-size:17px;line-height:1;cursor:pointer;
+    display:grid;place-items:center;transition:color .15s,border-color .15s}
+  .fwarrow:hover{color:var(--txt);border-color:var(--accent)}
   .srcbadge{font-size:10px;font-weight:700;letter-spacing:.4px;padding:2px 8px;border-radius:10px;text-transform:uppercase}
   .srcbadge.poly{background:#12241a;color:var(--pos)}
   .srcbadge.fmp{background:#332810;color:var(--hibeta)}
@@ -759,6 +772,7 @@
       </div>
       <div class="note" id="fund-note" style="margin:0"></div>
     </div>
+    <div id="fund-wheel" class="fundwheel"></div>
     <div id="fund-brief"></div>
     <div id="fund-earnings"></div>
     <div id="fund-grid"><div class="ccmsg">Pick a ticker to load fundamentals.</div></div>
@@ -2595,14 +2609,39 @@ async function loadFundamentals(){
     document.getElementById('fund-grid').innerHTML=`<div class="err">Failed: ${e.message}</div>`;
   }
 }
+// every distinct underlying I hold — across stocks, CSPs, covered calls, LEAPs —
+// deduped and alphabetical, so "all my assets" really means all of them.
+function allHoldingSymbols(){
+  const g=(_bd&&_bd.groups)||{}, set=new Set();
+  ['stock','csp','covered_call','leap'].forEach(k=>((g[k]&&g[k].rows)||[]).forEach(r=>r.symbol&&set.add(r.symbol)));
+  return [...set].sort();
+}
+function renderFundWheel(){
+  const wrap=document.getElementById('fund-wheel'); if(!wrap) return;
+  const syms=allHoldingSymbols();
+  if(!syms.length){ wrap.innerHTML=''; return; }
+  const chips=syms.map(s=>`<button class="fwchip${s===_fundSym?' active':''}" onclick="pickFund('${s}')">${s}</button>`).join('');
+  wrap.innerHTML=`<button class="fwarrow" onclick="fundStep(-1)" title="previous holding">‹</button>`
+    +`<div class="fwtrack" id="fw-track">${chips}</div>`
+    +`<button class="fwarrow" onclick="fundStep(1)" title="next holding">›</button>`;
+  const act=wrap.querySelector('.fwchip.active'); if(act) act.scrollIntoView({inline:'center',block:'nearest'});
+}
+function fundStep(d){
+  const syms=allHoldingSymbols(); if(!syms.length) return;
+  let i=syms.indexOf(_fundSym); if(i<0) i=0;
+  pickFund(syms[(i+d+syms.length)%syms.length]);
+}
 function openFundamentals(){
   const sel=document.getElementById('fund-sym');
-  const syms=(_bd&&_bd.groups.stock.rows||[]).map(r=>r.symbol);
-  if(sel.options.length!==syms.length || (syms[0]&&sel.options[0]&&sel.options[0].value!==syms[0])){
+  const syms=allHoldingSymbols();
+  const sig=syms.join(',');
+  if(sel.dataset.sig!==sig){                          // rebuild only when the holdings set changes
     sel.innerHTML=syms.map(s=>`<option value="${s}">${s}</option>`).join('');
+    sel.dataset.sig=sig;
     if(!_fundSym||!syms.includes(_fundSym)) _fundSym=syms[0]||null;
     sel.value=_fundSym||'';
   }
+  renderFundWheel();
   if(_fundSym && _fundLoaded!==_fundSym+':'+_fundPeriod) loadFundamentals();
 }
 function pickFund(sym){
@@ -2610,6 +2649,7 @@ function pickFund(sym){
   _fundSym=sym; _fundLoaded=''; _fundUserPeriod=false;   // new ticker -> let young-auto decide again
   const sel=document.getElementById('fund-sym');
   sel.value=[...sel.options].some(o=>o.value===sym)?sym:'';  // sync dropdown if owned
+  renderFundWheel();   // update the active chip highlight
   loadFundamentals();
 }
 function setFundPeriod(p){
