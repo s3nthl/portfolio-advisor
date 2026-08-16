@@ -208,6 +208,30 @@
   .ostrat.pos{border-left:3px solid var(--pos)} .ostrat.neg{border-left:3px solid var(--neg)}
   .ostrat .ov{font-size:19px}
   .ostratsub{font-size:10.5px;color:var(--muted);margin-top:3px;font-family:var(--mono)}
+  /* P&L trend chart — gold date labels, just for fun */
+  .optchart .axl{fill:#e8b437;font-family:var(--mono)}
+  /* P&L calendar heatmap */
+  .calhdr{display:flex;align-items:center;justify-content:center;gap:16px;margin:6px 0 2px}
+  .caltitle{font-family:var(--display);font-size:18px;font-weight:700;letter-spacing:-.01em}
+  .calgrid{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .calrow{display:grid;grid-template-columns:repeat(7,1fr) .8fr;gap:6px}
+  .caldow{font-size:9.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);text-align:right;padding:0 7px 2px}
+  .calcell{position:relative;min-height:60px;border:1px solid var(--hairline);border-radius:9px;padding:5px 8px;
+    display:flex;flex-direction:column;justify-content:space-between;background:var(--panel3)}
+  .calcell.empty{border:0;background:transparent}
+  .calcell.live{cursor:pointer;transition:transform .12s var(--ease),box-shadow .12s,filter .12s}
+  .calcell.live:hover{transform:translateY(-2px);box-shadow:var(--sh-2);filter:brightness(1.15)}
+  .calnum{font-size:11px;color:var(--txt);text-align:right;font-family:var(--mono);opacity:.7}
+  .calamt{font-size:13.5px;font-weight:800;text-align:right;font-family:var(--mono);color:#f4f7fb;letter-spacing:-.02em}
+  .calwk{display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-end;padding:5px 6px;
+    font-family:var(--mono);font-size:12px;font-weight:700;border-left:1px dashed var(--hairline2)}
+  .calwk.pos{color:var(--pos)} .calwk.neg{color:var(--neg)} .calwk.muted{color:var(--dim)}
+  .calwklbl{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px}
+  .caldetail{margin-top:14px;border-top:1px solid var(--hairline);padding-top:11px;min-height:20px}
+  .cdhdr{font-family:var(--mono);font-size:13px;margin-bottom:7px;font-weight:600}
+  .cdrow{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:5px 3px;border-bottom:1px solid var(--hairline);font-family:var(--mono)}
+  .cdopened{font-size:10px;color:var(--dim);margin-left:6px}
+  .fwarrow[disabled]{opacity:.28;cursor:default;pointer-events:none}
   @media(max-width:900px){ .ostatrow{grid-template-columns:repeat(2,1fr)} .ogrid{grid-template-columns:1fr} }
   .srcbadge{font-size:10px;font-weight:700;letter-spacing:.4px;padding:2px 8px;border-radius:10px;text-transform:uppercase}
   .srcbadge.poly{background:#12241a;color:var(--pos)}
@@ -765,12 +789,16 @@
 
   <section class="tab" id="tab-options">
     <div class="sec" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:0">
+      <div class="viewtoggle" id="opt-view">
+        <button data-v="trend" class="active">📈 Trend</button>
+        <button data-v="calendar">📅 Calendar</button>
+      </div>
       <div class="viewtoggle" id="opt-gran">
         <button data-g="daily">Daily</button>
         <button data-g="weekly">Weekly</button>
         <button data-g="monthly" class="active">Monthly</button>
       </div>
-      <div class="note" style="margin:0">What you made in options on <b>closed positions</b> (last ~1yr) — <span class="muted">each position's realized P&amp;L booked on its close date (buyback, expiry, or assignment). Split by strategy so wheel income (CSP / covered call) is separate from directional long calls/LEAPs. Open positions show unrealized only.</span></div>
+      <div class="note" style="margin:0">What you made in options on <b>closed positions</b> (last ~1yr) — <span class="muted">each position's realized P&amp;L booked on its close date. Split by strategy (wheel vs directional). Calendar: click any day to see which positions made that number.</span></div>
     </div>
     <div id="opt-body"><div class="ccmsg">Loading options performance…</div></div>
   </section>
@@ -918,7 +946,77 @@ function bar(pctVal, color, max){
 }
 
 // ---- Options performance: realized P&L from trade history ----
-let _optData=null, _optGran='monthly', _optLoaded=false;
+let _optData=null, _optGran='monthly', _optLoaded=false, _optView='trend', _optCalMonth=null;
+const _MON3=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function optAmt(v){ if(_priv) return _MASK; const a=Math.abs(v),s=v<0?'-':'';
+  return a>=1000 ? s+'$'+(a/1000).toFixed(1)+'k' : s+'$'+Math.round(a); }
+function setOptView(v){ _optView=v;
+  document.querySelectorAll('#opt-view button').forEach(b=>b.classList.toggle('active',b.dataset.v===v));
+  document.getElementById('opt-gran').style.display = v==='calendar'?'none':'';
+  if(_optData) renderOptions();
+}
+function _optMonths(){ return [...new Set((_optData.closed_detail||[]).map(p=>p.d.slice(0,7)))].sort(); }
+function optCalNav(delta){
+  const [y,m]=_optCalMonth.split('-').map(Number);
+  const dt=new Date(y,m-1+delta,1); const k=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+  const ms=_optMonths(); if(k>=ms[0]&&k<=ms[ms.length-1]) _optCalMonth=k;
+  renderOptions();
+}
+function optCalendar(){
+  const detail=_optData.closed_detail||[];
+  const ms=_optMonths(); if(!ms.length) return '<div class="ccmsg">No closed positions yet.</div>';
+  if(!_optCalMonth || !ms.includes(_optCalMonth)) _optCalMonth=ms[ms.length-1];
+  const byDay={}, cntDay={};
+  detail.forEach(p=>{ if(p.d.slice(0,7)!==_optCalMonth) return; byDay[p.d]=(byDay[p.d]||0)+p.net; cntDay[p.d]=(cntDay[p.d]||0)+1; });
+  const [y,m]=_optCalMonth.split('-').map(Number);
+  const startDow=new Date(y,m-1,1).getDay(), dim=new Date(y,m,0).getDate();
+  const maxAbs=Math.max(1,...Object.values(byDay).map(v=>Math.abs(v)));
+  const monthNet=Object.values(byDay).reduce((a,v)=>a+v,0);
+  const first=ms[0]<_optCalMonth, last=ms[ms.length-1]>_optCalMonth;
+  // build cells (leading blanks + days), grouped into weeks of 7
+  const cells=[];
+  for(let i=0;i<startDow;i++) cells.push(null);
+  for(let day=1;day<=dim;day++) cells.push(day);
+  while(cells.length%7) cells.push(null);
+  let rows='';
+  for(let w=0;w<cells.length/7;w++){
+    const week=cells.slice(w*7,w*7+7); let wkNet=0, cellsHtml='';
+    week.forEach(day=>{
+      if(day==null){ cellsHtml+='<div class="calcell empty"></div>'; return; }
+      const ds=`${y}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      const v=byDay[ds];
+      if(v==null){ cellsHtml+=`<div class="calcell"><span class="calnum">${day}</span></div>`; return; }
+      wkNet+=v;
+      const a=0.14+0.5*(Math.abs(v)/maxAbs);
+      const bg=v>=0?`rgba(64,196,106,${a.toFixed(2)})`:`rgba(242,105,95,${a.toFixed(2)})`;
+      cellsHtml+=`<div class="calcell live" style="background:${bg}" onclick="optDayDetail('${ds}')" title="${cntDay[ds]} closed position(s)">
+        <span class="calnum">${day}</span><span class="calamt ${v>=0?'pos':'neg'}">${optAmt(v)}</span></div>`;
+    });
+    const wkCls=wkNet>0?'pos':wkNet<0?'neg':'muted';
+    rows+=`<div class="calrow">${cellsHtml}<div class="calwk ${wkCls}"><span class="calwklbl">wk</span>${week.some(d=>d)?optAmt(wkNet):''}</div></div>`;
+  }
+  const dow=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>`<div class="caldow">${d}</div>`).join('')+'<div class="caldow">Week</div>';
+  const netCls=monthNet>=0?'pos':'neg';
+  return `<div class="calhdr">
+      <button class="fwarrow" onclick="optCalNav(-1)" ${first?'':'disabled'}>‹</button>
+      <div class="caltitle">${_MON3[m-1]} ${y} <span class="${netCls}">· ${_priv?_MASK:usd(monthNet)}</span></div>
+      <button class="fwarrow" onclick="optCalNav(1)" ${last?'':'disabled'}>›</button>
+    </div>
+    <div class="calgrid"><div class="calrow calhead">${dow}</div>${rows}</div>
+    <div id="opt-daydetail" class="caldetail"><span class="muted">Click a colored day to see which positions made that number.</span></div>`;
+}
+function optDayDetail(ds){
+  const rows=(_optData.closed_detail||[]).filter(p=>p.d===ds).sort((a,b)=>a.net-b.net);
+  const net=rows.reduce((a,p)=>a+p.net,0);
+  const dt=new Date(ds+'T00:00:00'); const hdr=`${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()]} ${_MON3[dt.getMonth()]} ${dt.getDate()}, ${dt.getFullYear()}`;
+  const stratShort={'CSP':'CSP','Covered call':'Cov. call','Long call / LEAP':'LEAP/call','Long put':'Long put','Spread / mixed':'Spread'};
+  const list=rows.map(p=>`<div class="cdrow">
+    <span><b>${p.u}</b> <span class="muted">${stratShort[p.s]||p.s}</span> <span class="cdopened">opened ${p.opened.slice(5)}</span></span>
+    <span class="${p.net>=0?'pos':'neg'}">${_priv?_MASK:usd(p.net)}</span></div>`).join('');
+  const host=document.getElementById('opt-daydetail'); if(!host) return;
+  host.innerHTML=`<div class="cdhdr">${hdr} · <span class="${net>=0?'pos':'neg'}">${_priv?_MASK:usd(net)}</span> <span class="muted">· ${rows.length} closed position${rows.length!=1?'s':''}</span></div>${list}`;
+  host.scrollIntoView({block:'nearest',behavior:'smooth'});
+}
 async function loadOptions(force){
   if(_optLoaded && !force && _optData){ renderOptions(); return; }
   const host=document.getElementById('opt-body');
@@ -1005,12 +1103,13 @@ function renderOptions(){
   const opentbl=d.open_positions.length?`<div class="opanel"><h3 class="rech3">Open positions · unrealized</h3>
     <table class="otbl"><thead><tr><th>Position</th><th class="r">Qty</th><th class="r">Strike</th><th class="r">DTE</th><th class="r">Unreal.</th></tr></thead>
     <tbody>${oprows}</tbody></table></div>`:'';
-  document.getElementById('opt-body').innerHTML=cards
-    +strategy
-    +`<div class="opanel"><h3 class="rech3">Realized P&L · ${_optGran} <span class="muted">· ${d.from} → ${d.to} · each position booked on its close date · line = cumulative</span></h3>${optChart(series)}</div>`
-    +`<div class="ogrid">${table}${opentbl}</div>`;
+  const mid = _optView==='calendar'
+    ? `<div class="opanel"><h3 class="rech3">P&L calendar <span class="muted">· each day green/red by realized P&L · click a day for the positions behind it</span></h3>${optCalendar()}</div>`
+    : `<div class="opanel"><h3 class="rech3">Realized P&L · ${_optGran} <span class="muted">· ${d.from} → ${d.to} · each position booked on its close date · line = cumulative</span></h3>${optChart(series)}</div>`;
+  document.getElementById('opt-body').innerHTML=cards+strategy+mid+`<div class="ogrid">${table}${opentbl}</div>`;
 }
 document.querySelectorAll('#opt-gran button').forEach(b=>b.onclick=()=>setOptGran(b.dataset.g));
+document.querySelectorAll('#opt-view button').forEach(b=>b.onclick=()=>setOptView(b.dataset.v));
 
 // ---- privacy mode: hide/show all dollar values across every tab ----
 function updatePrivBtn(){

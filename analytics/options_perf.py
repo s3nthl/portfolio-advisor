@@ -162,5 +162,11 @@ def build_performance(txns: list[dict], open_positions: list[dict],
         "by_strategy": by_strategy,
         "series": {g: _series(closed, g) for g in ("daily", "weekly", "monthly")},
         "by_ticker": by_ticker,
+        # per-closed-position detail (booked on close date) — drives the calendar
+        # heatmap and the click-through "where did this day's number come from".
+        "closed_detail": [{"d": p["close_date"].isoformat(), "u": p["underlying"],
+                           "s": p["strategy"], "net": p["net"],
+                           "opened": p["open_date"].isoformat(), "trades": p["trades"]}
+                          for p in sorted(closed, key=lambda p: p["close_date"])],
         "open_positions": sorted(open_positions, key=lambda p: (p.get("pl_open") or 0)),
     }
