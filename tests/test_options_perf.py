@@ -4,10 +4,26 @@ from __future__ import annotations
 from analytics.options_perf import build_performance
 
 
-def _txn(date, net, pid, under, kind, contracts, effect, typ="TRADE"):
+def _txn(date, net, pid, under, kind, contracts, effect, typ="TRADE", strike=None):
     return {"date": date, "type": typ, "position_id": pid, "underlying": under,
-            "kind": kind, "symbol": under, "contracts": contracts,
+            "kind": kind, "symbol": under, "contracts": contracts, "strike": strike,
             "effect": effect, "net": net}
+
+
+def test_roc_from_capital_and_holding_period():
+    # sell a $100-strike put for $200, buy back for $50 -> +$150 on $10,000 secured
+    txns = [
+        _txn("2026-01-01", 200.0, 1, "XYZ", "PUT", -1, "OPENING", strike=100.0),
+        _txn("2026-01-31", -50.0, 1, "XYZ", "PUT", 1, "CLOSING", strike=100.0),  # 30 days, closed
+    ]
+    d = build_performance(txns, [], as_of="2026-02-01")
+    t = d["totals"]
+    assert t["avg_capital"] == 10000                  # 100 x 100 x 1, held the whole window
+    assert t["roc_pct"] == 1.5                         # 150 / 10000 over the window
+    # annualized: 150 / (10000 * 30/365) ~= 18.25%
+    assert 17.5 < t["roc_annual_pct"] < 19.0
+    cd = d["closed_detail"][0]
+    assert cd["cap"] == 10000.0 and cd["days"] == 30
 
 
 def test_closed_position_booked_on_close_date():

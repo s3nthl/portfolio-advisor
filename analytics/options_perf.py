@@ -43,6 +43,9 @@ def _parse(s: str) -> date | None:
         return None
 
 
+WHEEL_STRATEGIES = ("CSP", "Covered call")
+
+
 def _strategy(kinds: set, opens: list) -> str:
     """Classify from the opening leg's direction + option type."""
     short = (opens[0] < 0) if opens else True
@@ -54,12 +57,22 @@ def _strategy(kinds: set, opens: list) -> str:
     return "Spread / mixed"
 
 
+def _capital(strategy: str, strike, open_contracts: float, open_debit: float) -> float:
+    """Capital at risk for the position — the base for ROC.
+    Short wheel legs: strike x 100 x contracts (cash secured / shares covered).
+    Long options: the premium paid (the debit)."""
+    if strategy in WHEEL_STRATEGIES and strike:
+        return round(abs(strike) * 100 * abs(open_contracts), 2)
+    return round(abs(open_debit), 2)
+
+
 def _positions(txns: list[dict]) -> list[dict]:
     """Collapse trade legs into positions (incl. assignment/expiry legs so the
     contract count — hence closed-detection and close date — is correct)."""
     groups: dict = defaultdict(lambda: {"net": 0.0, "contracts": 0.0, "dates": [],
                                         "kinds": set(), "opens": [], "underlying": None,
-                                        "trades": 0})
+                                        "trades": 0, "open_strike": None,
+                                        "open_contracts": 0.0, "open_debit": 0.0})
     solo = 0
     for t in txns:
         pid = t.get("position_id")
@@ -75,6 +88,10 @@ def _positions(txns: list[dict]) -> list[dict]:
             g["kinds"].add(t["kind"])
         if t.get("effect") == "OPENING":
             g["opens"].append(t.get("contracts") or 0.0)
+            g["open_contracts"] += abs(t.get("contracts") or 0.0)
+            g["open_debit"] += t.get("net") or 0.0
+            if g["open_strike"] is None and t.get("strike") is not None:
+                g["open_strike"] = t.get("strike")
         if t.get("type") == "TRADE":
             g["trades"] += 1
         g["underlying"] = g["underlying"] or t.get("underlying")
@@ -82,14 +99,17 @@ def _positions(txns: list[dict]) -> list[dict]:
     for g in groups.values():
         if not g["dates"]:
             continue
+        strat = _strategy(g["kinds"], g["opens"])
         out.append({
             "underlying": g["underlying"] or "?",
             "net": round(g["net"], 2),
             "closed": abs(g["contracts"]) < 1e-6,
             "close_date": max(g["dates"]),
             "open_date": min(g["dates"]),
-            "strategy": _strategy(g["kinds"], g["opens"]),
+            "strategy": strat,
             "trades": g["trades"],
+            "cap": _capital(strat, g["open_strike"], g["open_contracts"], g["open_debit"]),
+            "days": max((max(g["dates"]) - min(g["dates"])).days, 1),
         })
     return out
 
@@ -121,6 +141,19 @@ def build_performance(txns: list[dict], open_positions: list[dict],
     total = round(sum(p["net"] for p in closed), 2)
     wins = sum(1 for p in closed if p["net"] > 0)
     unreal = round(sum(x.get("pl_open") or 0 for x in open_positions), 2)
+
+    # Return on capital, annualized: realized ÷ capital-YEARS at risk (each
+    # position's capital weighted by how long it was held). Because capital is
+    # reused as positions roll, we report the AVERAGE capital at risk over the
+    # window (capital-years ÷ window length), not the meaningless running sum.
+    cap_years = sum(p["cap"] * p["days"] / 365.0 for p in closed)
+    if closed:
+        span_days = max((dates[-1] - min(p["open_date"] for p in closed)).days, 1)
+    else:
+        span_days = 1
+    avg_capital = round(cap_years / (span_days / 365.0)) if cap_years else 0
+    roc_annual = round(total / cap_years * 100, 1) if cap_years else None
+    roc_pct = round(total / avg_capital * 100, 1) if avg_capital else None  # over the window
 
     # by strategy — wheel income vs directional, never blended
     strat: dict = defaultdict(lambda: {"net": 0.0, "positions": 0, "wins": 0})
@@ -158,6 +191,8 @@ def build_performance(txns: list[dict], open_positions: list[dict],
         "totals": {"realized": total, "closed_positions": len(closed),
                    "win_rate": round(wins / len(closed) * 100) if closed else None,
                    "avg_per_position": round(total / len(closed), 2) if closed else 0,
+                   "avg_capital": avg_capital,
+                   "roc_pct": roc_pct, "roc_annual_pct": roc_annual,
                    "open_count": len(open_positions), "unrealized_open": unreal},
         "by_strategy": by_strategy,
         "series": {g: _series(closed, g) for g in ("daily", "weekly", "monthly")},
@@ -166,7 +201,8 @@ def build_performance(txns: list[dict], open_positions: list[dict],
         # heatmap and the click-through "where did this day's number come from".
         "closed_detail": [{"d": p["close_date"].isoformat(), "u": p["underlying"],
                            "s": p["strategy"], "net": p["net"],
-                           "opened": p["open_date"].isoformat(), "trades": p["trades"]}
+                           "opened": p["open_date"].isoformat(), "trades": p["trades"],
+                           "cap": p["cap"], "days": p["days"]}
                           for p in sorted(closed, key=lambda p: p["close_date"])],
         "open_positions": sorted(open_positions, key=lambda p: (p.get("pl_open") or 0)),
     }

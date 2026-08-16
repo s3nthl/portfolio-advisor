@@ -189,7 +189,7 @@
     display:grid;place-items:center;transition:color .15s,border-color .15s}
   .fwarrow:hover{color:var(--txt);border-color:var(--accent)}
   /* options performance tab */
-  .ostatrow{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:4px 0 14px}
+  .ostatrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px;margin:4px 0 14px}
   .ostat{background:var(--panel);border:1px solid var(--hairline);border-radius:12px;padding:14px 16px}
   .ol{font-size:10px;letter-spacing:.5px;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
   .ov{font-family:var(--display);font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
@@ -789,6 +789,10 @@
 
   <section class="tab" id="tab-options">
     <div class="sec" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:0">
+      <div class="viewtoggle" id="opt-scope">
+        <button data-w="all" class="active">All options</button>
+        <button data-w="wheel">🎯 Wheel only</button>
+      </div>
       <div class="viewtoggle" id="opt-view">
         <button data-v="trend" class="active">📈 Trend</button>
         <button data-v="calendar">📅 Calendar</button>
@@ -798,7 +802,7 @@
         <button data-g="weekly">Weekly</button>
         <button data-g="monthly" class="active">Monthly</button>
       </div>
-      <div class="note" style="margin:0">What you made in options on <b>closed positions</b> (last ~1yr) — <span class="muted">each position's realized P&amp;L booked on its close date. Split by strategy (wheel vs directional). Calendar: click any day to see which positions made that number.</span></div>
+      <div class="note" style="margin:0">What you made in options on <b>closed positions</b> (lifetime) — <span class="muted">realized P&amp;L booked on each position's close date · ROC = annualized return on capital at risk · Wheel only = CSP + covered calls · Calendar: click any day to see which positions made that number.</span></div>
     </div>
     <div id="opt-body"><div class="ccmsg">Loading options performance…</div></div>
   </section>
@@ -946,8 +950,40 @@ function bar(pctVal, color, max){
 }
 
 // ---- Options performance: realized P&L from trade history ----
-let _optData=null, _optGran='monthly', _optLoaded=false, _optView='trend', _optCalMonth=null;
+let _optData=null, _optGran='monthly', _optLoaded=false, _optView='trend', _optCalMonth=null, _optWheel=false, _optDetail=[];
 const _MON3=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const optIsWheel=p=>p.s==='CSP'||p.s==='Covered call';
+// aggregate the (optionally wheel-filtered) closed positions client-side, so the
+// wheel toggle, ROC and lifetime window all recompute instantly from one list.
+function optCompute(detail){
+  let realized=0,wins=0,capYears=0,minOpen=null,maxClose=null;
+  const strat={},tick={},gran={daily:{},weekly:{},monthly:{}};
+  const wkKey=d=>{const dt=new Date(d+'T00:00:00');dt.setDate(dt.getDate()-((dt.getDay()+6)%7));
+    return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;};
+  detail.forEach(p=>{
+    realized+=p.net; if(p.net>0)wins++;
+    capYears+=(p.cap||0)*Math.max(p.days||1,1)/365;
+    if(!minOpen||p.opened<minOpen)minOpen=p.opened; if(!maxClose||p.d>maxClose)maxClose=p.d;
+    const s=strat[p.s]=strat[p.s]||{strategy:p.s,net:0,positions:0,wins:0}; s.net+=p.net;s.positions++;if(p.net>0)s.wins++;
+    const u=tick[p.u]=tick[p.u]||{symbol:p.u,net:0,positions:0,wins:0}; u.net+=p.net;u.positions++;if(p.net>0)u.wins++;
+    [['daily',p.d],['weekly',wkKey(p.d)],['monthly',p.d.slice(0,7)]].forEach(([g,k])=>{
+      const b=gran[g][k]=gran[g][k]||{period:k,net:0,positions:0,wins:0}; b.net+=p.net;b.positions++;if(p.net>0)b.wins++;});
+  });
+  const closed=detail.length;
+  const spanDays=(minOpen&&maxClose)?Math.max((new Date(maxClose)-new Date(minOpen))/864e5,1):1;
+  const avgCap=capYears?Math.round(capYears/(spanDays/365)):0;
+  const series={}; ['daily','weekly','monthly'].forEach(g=>{
+    const rows=Object.values(gran[g]).sort((a,b)=>a.period<b.period?-1:1); let run=0;
+    rows.forEach(r=>{run+=r.net;r.net=Math.round(r.net*100)/100;r.cumulative=Math.round(run*100)/100;}); series[g]=rows;});
+  const openU=new Set((_optData.open_positions||[]).map(o=>o.symbol));
+  const rnd=v=>Math.round(v*100)/100, wr=(w,n)=>n?Math.round(w/n*100):null;
+  return {realized:rnd(realized),closed,win_rate:wr(wins,closed),avg_capital:avgCap,
+    roc_annual:capYears?Math.round(realized/capYears*1000)/10:null,
+    roc_win:avgCap?Math.round(realized/avgCap*1000)/10:null,
+    by_strategy:Object.values(strat).map(s=>({...s,net:rnd(s.net),win_rate:wr(s.wins,s.positions)})).sort((a,b)=>b.net-a.net),
+    by_ticker:Object.values(tick).map(u=>({...u,net:rnd(u.net),win_rate:wr(u.wins,u.positions),open:openU.has(u.symbol)})).sort((a,b)=>b.net-a.net),
+    series, from:minOpen, to:maxClose};
+}
 function optAmt(v){ if(_priv) return _MASK; const a=Math.abs(v),s=v<0?'-':'';
   return a>=1000 ? s+'$'+(a/1000).toFixed(1)+'k' : s+'$'+Math.round(a); }
 function setOptView(v){ _optView=v;
@@ -955,7 +991,7 @@ function setOptView(v){ _optView=v;
   document.getElementById('opt-gran').style.display = v==='calendar'?'none':'';
   if(_optData) renderOptions();
 }
-function _optMonths(){ return [...new Set((_optData.closed_detail||[]).map(p=>p.d.slice(0,7)))].sort(); }
+function _optMonths(){ return [...new Set((_optDetail||[]).map(p=>p.d.slice(0,7)))].sort(); }
 function optCalNav(delta){
   const [y,m]=_optCalMonth.split('-').map(Number);
   const dt=new Date(y,m-1+delta,1); const k=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
@@ -963,7 +999,7 @@ function optCalNav(delta){
   renderOptions();
 }
 function optCalendar(){
-  const detail=_optData.closed_detail||[];
+  const detail=_optDetail||[];
   const ms=_optMonths(); if(!ms.length) return '<div class="ccmsg">No closed positions yet.</div>';
   if(!_optCalMonth || !ms.includes(_optCalMonth)) _optCalMonth=ms[ms.length-1];
   const byDay={}, cntDay={};
@@ -1006,7 +1042,7 @@ function optCalendar(){
     <div id="opt-daydetail" class="caldetail"><span class="muted">Click a colored day to see which positions made that number.</span></div>`;
 }
 function optDayDetail(ds){
-  const rows=(_optData.closed_detail||[]).filter(p=>p.d===ds).sort((a,b)=>a.net-b.net);
+  const rows=(_optDetail||[]).filter(p=>p.d===ds).sort((a,b)=>a.net-b.net);
   const net=rows.reduce((a,p)=>a+p.net,0);
   const dt=new Date(ds+'T00:00:00'); const hdr=`${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()]} ${_MON3[dt.getMonth()]} ${dt.getDate()}, ${dt.getFullYear()}`;
   const stratShort={'CSP':'CSP','Covered call':'Cov. call','Long call / LEAP':'LEAP/call','Long put':'Long put','Spread / mixed':'Spread'};
@@ -1020,7 +1056,7 @@ function optDayDetail(ds){
 async function loadOptions(force){
   if(_optLoaded && !force && _optData){ renderOptions(); return; }
   const host=document.getElementById('opt-body');
-  host.innerHTML='<div class="ccmsg">⟳ Pulling ~1yr of option trades…</div>';
+  host.innerHTML='<div class="ccmsg">⟳ Pulling your options trade history…</div>';
   try{
     const d=await (await fetch('/api/options-performance'+(force?'?force=1':''))).json();
     if(d.status==='offline'){ host.innerHTML='<div class="ccmsg">Options performance needs the live Schwab source.</div>'; return; }
@@ -1067,25 +1103,32 @@ function optChart(series){
 }
 function optStat(label,val,cls){ return `<div class="ostat"><div class="ol">${label}</div><div class="ov ${cls||''}">${val}</div></div>`; }
 function renderOptions(){
-  const d=_optData; if(!d) return;
-  const t=d.totals, series=d.series[_optGran]||[];
+  if(!_optData) return;
   const sgn=v=>(v>=0?'pos':'neg');
   const win=r=>r.win_rate==null?'<span class="muted">—</span>':`<span class="${r.win_rate>=70?'pos':r.win_rate>=50?'':'neg'}">${r.win_rate}%</span>`;
+  // wheel filter: keep only CSP + covered call across the whole tab
+  _optDetail = _optWheel ? (_optData.closed_detail||[]).filter(optIsWheel) : (_optData.closed_detail||[]);
+  const c=optCompute(_optDetail), series=c.series[_optGran]||[];
+  const openAll=_optData.open_positions||[];
+  const openPos=_optWheel? openAll.filter(p=>p.role==='short_put'||p.role==='covered_call') : openAll;
+  const unreal=openPos.reduce((a,p)=>a+(p.pl_open||0),0);
+  const roc=c.roc_annual==null?'—':(c.roc_annual>=0?'+':'')+c.roc_annual+'%';
   const cards=`<div class="ostatrow">
-    ${optStat('REALIZED · CLOSED', (_priv?_MASK:usd(t.realized)), sgn(t.realized))}
-    ${optStat('CLOSED POSITIONS', (t.closed_positions||0).toLocaleString(), '')}
-    ${optStat('WIN RATE', (t.win_rate==null?'—':t.win_rate+'%'), (t.win_rate>=60?'pos':''))}
-    ${optStat('AVG / POSITION', (_priv?_MASK:usd(t.avg_per_position)), sgn(t.avg_per_position))}
-    ${optStat('OPEN · UNREALIZED', (_priv?_MASK:usd(t.unrealized_open)), sgn(t.unrealized_open))}
+    ${optStat('REALIZED · CLOSED', (_priv?_MASK:usd(c.realized)), sgn(c.realized))}
+    ${optStat('ROC · ANNUALIZED', (_priv?_MASK:roc), sgn(c.roc_annual||0))}
+    ${optStat('AVG CAPITAL AT RISK', (_priv?_MASK:usdK(c.avg_capital)), '')}
+    ${optStat('WIN RATE', (c.win_rate==null?'—':c.win_rate+'%'), (c.win_rate>=60?'pos':''))}
+    ${optStat('CLOSED POSITIONS', c.closed.toLocaleString(), '')}
+    ${optStat('OPEN · UNREALIZED', (_priv?_MASK:usd(unreal)), sgn(unreal))}
   </div>`;
   // strategy split — wheel income (CSP / covered call) vs directional long options, never blended
-  const stratCards=(d.by_strategy||[]).filter(s=>s.positions).map(s=>`
+  const stratCards=c.by_strategy.filter(s=>s.positions).map(s=>`
     <div class="ostrat ${sgn(s.net)}"><div class="ol">${s.strategy}</div>
       <div class="ov ${sgn(s.net)}">${_priv?_MASK:usd(s.net)}</div>
       <div class="ostratsub">${s.positions} closed · ${win(s)} win</div></div>`).join('');
-  const strategy=`<div class="opanel"><h3 class="rech3">By strategy · realized on closed positions <span class="muted">· wheel income vs directional long options</span></h3>
+  const strategy=`<div class="opanel"><h3 class="rech3">By strategy · realized on closed positions <span class="muted">· ${_optWheel?'wheel only':'wheel income vs directional long options'}</span></h3>
     <div class="ostratrow">${stratCards}</div></div>`;
-  const trows=d.by_ticker.map(r=>`<tr>
+  const trows=c.by_ticker.map(r=>`<tr>
     <td><b>${r.symbol}</b>${r.open?' <span class="opill">open</span>':''}</td>
     <td class="r ${sgn(r.net)}">${_priv?_MASK:usd(r.net)}</td>
     <td class="r">${r.positions}</td>
@@ -1094,22 +1137,27 @@ function renderOptions(){
     <table class="otbl"><thead><tr><th>Ticker</th><th class="r">Realized</th><th class="r">Closed</th><th class="r">Win</th></tr></thead>
     <tbody>${trows}</tbody></table></div>`;
   const roleLbl={short_put:'CSP',long_call:'LEAP/Call',covered_call:'Cov. Call',long_put:'Long Put'};
-  const oprows=d.open_positions.map(p=>`<tr>
+  const oprows=openPos.map(p=>`<tr>
     <td><b>${p.symbol}</b> <span class="muted">${roleLbl[p.role]||p.kind}</span></td>
     <td class="r">${p.contracts>0?'+':''}${p.contracts}</td>
     <td class="r muted">$${p.strike}</td>
     <td class="r muted">${p.dte}d</td>
     <td class="r ${sgn(p.pl_open)}">${_priv?_MASK:usd(p.pl_open)}</td></tr>`).join('');
-  const opentbl=d.open_positions.length?`<div class="opanel"><h3 class="rech3">Open positions · unrealized</h3>
+  const opentbl=openPos.length?`<div class="opanel"><h3 class="rech3">Open positions · unrealized</h3>
     <table class="otbl"><thead><tr><th>Position</th><th class="r">Qty</th><th class="r">Strike</th><th class="r">DTE</th><th class="r">Unreal.</th></tr></thead>
     <tbody>${oprows}</tbody></table></div>`:'';
   const mid = _optView==='calendar'
     ? `<div class="opanel"><h3 class="rech3">P&L calendar <span class="muted">· each day green/red by realized P&L · click a day for the positions behind it</span></h3>${optCalendar()}</div>`
-    : `<div class="opanel"><h3 class="rech3">Realized P&L · ${_optGran} <span class="muted">· ${d.from} → ${d.to} · each position booked on its close date · line = cumulative</span></h3>${optChart(series)}</div>`;
+    : `<div class="opanel"><h3 class="rech3">Realized P&L · ${_optGran} <span class="muted">· ${c.from||'—'} → ${c.to||'—'} · each position booked on its close date · line = cumulative</span></h3>${optChart(series)}</div>`;
   document.getElementById('opt-body').innerHTML=cards+strategy+mid+`<div class="ogrid">${table}${opentbl}</div>`;
+}
+function setOptWheel(on){ _optWheel=on;
+  document.querySelectorAll('#opt-scope button').forEach(b=>b.classList.toggle('active',(b.dataset.w==='wheel')===on));
+  if(_optData) renderOptions();
 }
 document.querySelectorAll('#opt-gran button').forEach(b=>b.onclick=()=>setOptGran(b.dataset.g));
 document.querySelectorAll('#opt-view button').forEach(b=>b.onclick=()=>setOptView(b.dataset.v));
+document.querySelectorAll('#opt-scope button').forEach(b=>b.onclick=()=>setOptWheel(b.dataset.w==='wheel'));
 
 // ---- privacy mode: hide/show all dollar values across every tab ----
 function updatePrivBtn(){

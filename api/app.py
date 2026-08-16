@@ -183,9 +183,10 @@ _OPTPERF_TTL = 600  # trade history barely changes intraday -> cache 10 min
 
 
 @app.get("/api/options-performance")
-def api_options_performance(days: int = 365, force: bool = False) -> JSONResponse:
-    """Realized options P&L (last ~1yr of trades) bucketed daily/weekly/monthly,
-    per ticker, plus current open option positions with unrealized P&L."""
+def api_options_performance(years: int = 3, force: bool = False) -> JSONResponse:
+    """Realized options P&L over the account's LIFETIME (Schwab's ~1yr windows
+    stitched), bucketed daily/weekly/monthly, per ticker + strategy, with ROC,
+    plus current open option positions with unrealized P&L."""
     if config.CHAI_SOURCE != "schwab":
         return JSONResponse({"status": "offline",
                              "detail": "Options performance needs the live Schwab source."})
@@ -194,7 +195,7 @@ def api_options_performance(days: int = 365, force: bool = False) -> JSONRespons
             and _time.time() - _OPTPERF_CACHE["t"] < _OPTPERF_TTL):
         return JSONResponse({**_OPTPERF_CACHE["payload"], "cached": True})
     try:
-        txns = fetch_option_transactions(days)
+        txns = fetch_option_transactions(years)
     except Exception as exc:
         return JSONResponse(status_code=502,
                             content={"error": "txn_fetch_failed", "detail": str(exc)})

@@ -560,47 +560,74 @@ def instrument_fundamentals(symbol: str) -> dict:
         return {}
 
 
-def fetch_option_transactions(days: int = 365) -> list[dict]:
+def fetch_option_transactions(years: int = 3) -> list[dict]:
     """Read-only pull of the account's OPTION trade history (for realized P&L).
 
-    Returns one record per option transaction (Schwab cleanly separates option
-    trades from stock — each has one OPTION leg + a cash leg), with `net` = the
-    signed realized cash flow AFTER fees: sell-to-open premium is positive, a
-    buy-to-close is negative, and assignments/expirations (RECEIVE_AND_DELIVER)
-    are 0 (the premium was already booked at open). `days` is capped by Schwab's
-    ~1-year transaction lookback. GET only — no order endpoint touched.
+    Schwab's transaction endpoint returns at most ~1 year per call, so for a
+    LIFETIME view we walk back one 1-year window at a time (up to `years`) and
+    dedupe by activityId. Returns one record per option transaction (Schwab
+    cleanly separates option trades from stock — each has one OPTION leg + a cash
+    leg), with `net` = the signed realized cash flow AFTER fees: sell-to-open
+    premium is positive, a buy-to-close is negative, assignments/expirations
+    (RECEIVE_AND_DELIVER) are 0 (premium already booked at open). `strike` is
+    parsed from the OSI symbol for capital/ROC. GET only — no order endpoint.
     """
     client = _get_client()
     h = _resolve_account_hash(client)
-    end = datetime.now(timezone.utc)
-    start = end - timedelta(days=min(days, 365))
-    resp = client.get_transactions(h, start_date=start, end_date=end)
-    if resp.status_code != 200:
-        raise RuntimeError(f"Schwab transactions HTTP {resp.status_code}")
+    now = datetime.now(timezone.utc)
+    seen: set = set()
     out: list[dict] = []
-    for t in resp.json():
-        legs = t.get("transferItems") or []
-        opt_legs = [ti for ti in legs
-                    if (ti.get("instrument") or {}).get("assetType") == "OPTION"]
-        if not opt_legs:
-            continue
-        leg = opt_legs[0]                       # transactions carry a single underlying
-        ins = leg.get("instrument") or {}
+    got_any = False
+    for yr in range(max(1, years)):
+        end = now - timedelta(days=365 * yr)
+        start = end - timedelta(days=365)
         try:
-            contracts = float(leg.get("amount") or 0)
+            resp = client.get_transactions(h, start_date=start, end_date=end)
         except Exception:
-            contracts = 0.0
-        out.append({
-            "date": (t.get("tradeDate") or "")[:10],
-            "type": t.get("type"),               # TRADE | RECEIVE_AND_DELIVER
-            "position_id": t.get("position_id") or t.get("positionId"),
-            "underlying": ins.get("underlyingSymbol") or ins.get("symbol"),
-            "kind": ins.get("putCall"),          # PUT | CALL
-            "symbol": ins.get("symbol"),
-            "contracts": contracts,               # signed (+long / -short)
-            "effect": leg.get("positionEffect"),  # OPENING | CLOSING
-            "net": round(float(t.get("netAmount") or 0), 2),   # signed realized cash, after fees
-        })
+            continue
+        if resp.status_code != 200:
+            if not got_any and yr == 0:
+                raise RuntimeError(f"Schwab transactions HTTP {resp.status_code}")
+            continue
+        window_opts = 0
+        for t in resp.json():
+            aid = t.get("activityId")
+            if aid is not None and aid in seen:
+                continue
+            legs = t.get("transferItems") or []
+            opt_legs = [ti for ti in legs
+                        if (ti.get("instrument") or {}).get("assetType") == "OPTION"]
+            if not opt_legs:
+                continue
+            if aid is not None:
+                seen.add(aid)
+            window_opts += 1
+            leg = opt_legs[0]                    # transactions carry a single underlying
+            ins = leg.get("instrument") or {}
+            try:
+                contracts = float(leg.get("amount") or 0)
+            except Exception:
+                contracts = 0.0
+            strike = None
+            try:
+                _, _, _, strike = parse_option_symbol(ins.get("symbol") or "")
+            except Exception:
+                strike = None
+            out.append({
+                "date": (t.get("tradeDate") or "")[:10],
+                "type": t.get("type"),               # TRADE | RECEIVE_AND_DELIVER
+                "position_id": t.get("position_id") or t.get("positionId"),
+                "underlying": ins.get("underlyingSymbol") or ins.get("symbol"),
+                "kind": ins.get("putCall"),          # PUT | CALL
+                "symbol": ins.get("symbol"),
+                "strike": strike,
+                "contracts": contracts,               # signed (+long / -short)
+                "effect": leg.get("positionEffect"),  # OPENING | CLOSING
+                "net": round(float(t.get("netAmount") or 0), 2),
+            })
+        got_any = got_any or window_opts > 0
+        if window_opts == 0 and yr > 0:          # walked past the account's history
+            break
     return out
 
 
