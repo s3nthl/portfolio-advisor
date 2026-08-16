@@ -75,6 +75,11 @@
     padding:10px 18px;font-weight:700;cursor:pointer;font-size:13px;letter-spacing:.2px;
     box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 6px 18px -6px rgba(91,151,245,.6);
     transition:transform .16s var(--ease),box-shadow .16s var(--ease),filter .16s}
+  button#privtoggle{background:var(--panel3);color:var(--muted);border:1px solid var(--hairline2);border-radius:10px;
+    padding:10px 14px;font-weight:600;cursor:pointer;font-size:13px;letter-spacing:.2px;margin-right:9px;
+    transition:color .16s,border-color .16s,background .16s}
+  button#privtoggle:hover{color:var(--txt);border-color:var(--accent)}
+  button#privtoggle.on{color:var(--accent2);border-color:var(--accent2);background:rgba(45,212,191,.08)}
   button#refresh:hover{filter:brightness(1.06);box-shadow:0 1px 0 rgba(255,255,255,.3) inset,0 10px 26px -6px rgba(91,151,245,.75);transform:translateY(-1px)}
   button#refresh:active{transform:translateY(0) scale(.98)}
   button#refresh:disabled{opacity:.55;cursor:progress;filter:none;transform:none}
@@ -663,6 +668,7 @@
 <header>
   <div class="hl" style="text-align:left"><div class="big" id="netliq">—</div><div class="sub" id="stamp">not yet refreshed</div></div>
   <div class="grow"></div>
+  <button id="privtoggle" title="Hide/show all dollar values (privacy mode)" onclick="togglePriv()">👁 Values</button>
   <button id="refresh">↻ Refresh</button>
 </header>
 <div id="ticker"></div>
@@ -845,14 +851,20 @@ const HIBETA="#e0a54a";  // high-beta = calm amber (red reserved for real alerts
 const HBICON='<svg class="hbi" viewBox="0 0 24 24" width="10" height="10" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" fill="currentColor"/></svg>';
 const LEVPILL='<span class="betapill" style="background:#3a2a12;color:#f0c674" title="2x/3x leveraged product">LEV</span>';
 const secColor = s => SECTOR_COLORS[s] || "#8b95a7";
-const usd = n => (n<0?"-$":"$")+Math.abs(n).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0});
-const usd2 = n => (n<0?"-$":"$")+Math.abs(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+// Privacy mode: when on, every DOLLAR figure (my position values, cash, P&L,
+// premiums) is masked to "•••••" everywhere. Percentages and company fundamentals
+// stay visible. Persisted so it survives reloads.
+let _priv = localStorage.getItem('port_priv')==='1';
+const _MASK = '•••••';
+const usd = n => _priv ? _MASK : (n<0?"-$":"$")+Math.abs(n).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0});
+const usd2 = n => _priv ? _MASK : (n<0?"-$":"$")+Math.abs(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 const pct = n => (n==null?"—":n.toFixed(1)+"%");
-const usdK = n => { const a=Math.abs(n); return a>=1e6?(n<0?'-$':'$')+(a/1e6).toFixed(1)+'M':a>=1e3?(n<0?'-$':'$')+Math.round(a/1e3)+'k':usd(n); };
-const usdBig = n => { const a=Math.abs(n),s=n<0?'-$':'$'; return a>=1e12?s+(a/1e12).toFixed(2)+'T':a>=1e9?s+(a/1e9).toFixed(1)+'B':a>=1e6?s+(a/1e6).toFixed(0)+'M':usd(n); };
+const usdK = n => { if(_priv) return _MASK; const a=Math.abs(n); return a>=1e6?(n<0?'-$':'$')+(a/1e6).toFixed(1)+'M':a>=1e3?(n<0?'-$':'$')+Math.round(a/1e3)+'k':usd(n); };
+const usdBig = n => { if(_priv) return _MASK; const a=Math.abs(n),s=n<0?'-$':'$'; return a>=1e12?s+(a/1e12).toFixed(2)+'T':a>=1e9?s+(a/1e9).toFixed(1)+'B':a>=1e6?s+(a/1e6).toFixed(0)+'M':usd(n); };
 // tasteful count-up: eases the hero figure from its prior value to the new one
 function countUp(elId, to, fmt=usd, ms=650){
   const el=document.getElementById(elId); if(!el) return;
+  if(_priv){ el.textContent=fmt(to); el._cuv=to; return; }   // no animation while masked
   const from=(el._cuv!=null)?el._cuv:to*0.985; el._cuv=to;
   if(from===to){ el.textContent=fmt(to); return; }
   const t0=performance.now();
@@ -867,6 +879,29 @@ function bar(pctVal, color, max){
   const w = Math.max(0, Math.min(100, (pctVal/(max||100))*100));
   return `<div class="bar"><span style="width:${w}%;background:${color}"></span></div>`;
 }
+
+// ---- privacy mode: hide/show all dollar values across every tab ----
+function updatePrivBtn(){
+  const b=document.getElementById('privtoggle'); if(!b) return;
+  b.classList.toggle('on',_priv);
+  b.innerHTML = _priv ? '🙈 Hidden' : '👁 Values';
+  b.title = _priv ? 'Values hidden — click to show dollar amounts' : 'Hide all dollar values (privacy mode)';
+}
+function rerenderPriv(){
+  // re-render everything we already hold in memory so the mask applies at once —
+  // no network refetch. Header + portfolio + sector come from render().
+  try{ if(_lastRefresh) render(_lastRefresh); }catch(e){}
+  try{ if(_cc) renderCoveredCalls(); }catch(e){}
+  try{ if(_csp) renderCspSelector(); }catch(e){}
+  try{ if(_ideasData) renderIdeas(_ideasData); }catch(e){}
+  try{ if(_fundData) renderFundamentals(_fundData); }catch(e){}
+  try{ if(_lastHistory) renderHistory(_lastHistory); }catch(e){}
+}
+function togglePriv(){
+  _priv=!_priv; localStorage.setItem('port_priv',_priv?'1':'0');
+  updatePrivBtn(); rerenderPriv();
+}
+updatePrivBtn();   // reflect the persisted state on load
 
 // ---- tabs ----
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
@@ -2171,7 +2206,9 @@ function renderDelta(d){
       <div class="m deltacell ${up?'pos':'neg'}">${up?'▲':'▼'} ${chg}${x.pct_change!=null?` (${x.pct_change>=0?'+':''}${x.pct_change}%)`:''}</div></div>`;
   }).join('');
 }
+let _lastHistory=null;
 function renderHistory(h){
+  _lastHistory=h;   // cached so the privacy toggle can re-render without refetching
   const tb=document.getElementById('hist-body'); tb.innerHTML="";
   for(const s of h.snapshots){
     const dp=s.dry_powder;
@@ -2287,7 +2324,9 @@ function fundLine(data, unit){
   const gid='fg'+Math.abs([...unit+data.length].reduce((a,c)=>a*31+c.charCodeAt(0),7)%99999);
   return `<svg viewBox="0 0 ${W} ${H}" class="fundsvg"><defs><linearGradient id="${gid}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".33"/><stop offset="1" stop-color="var(--accent)" stop-opacity=".02"/></linearGradient></defs>${grid}<path d="${area}" fill="url(#${gid})"/><path d="${line}" fill="none" stroke="var(--accent)" stroke-width="1.8"/>${endDot}${dots}${xl}</svg>`;
 }
+let _fundData=null;
 function renderFundamentals(d){
+  _fundData=d;   // remembered so the privacy toggle can re-mask without a refetch
   const grid=document.getElementById('fund-grid');
   const yrs=d.years||d.core_years||0, src=d.source;
   const note=document.getElementById('fund-note');
