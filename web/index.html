@@ -203,6 +203,11 @@
   .otbl td.pos{color:var(--pos)} .otbl td.neg{color:var(--neg)}
   .otbl tr:hover td{background:var(--panel3)}
   .opill{font-size:9.5px;background:var(--accent-weak);color:var(--accent);border-radius:5px;padding:1px 6px;margin-left:5px;vertical-align:middle}
+  .ostratrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:8px}
+  .ostrat{border:1px solid var(--hairline);border-radius:10px;padding:11px 13px;background:var(--panel3)}
+  .ostrat.pos{border-left:3px solid var(--pos)} .ostrat.neg{border-left:3px solid var(--neg)}
+  .ostrat .ov{font-size:19px}
+  .ostratsub{font-size:10.5px;color:var(--muted);margin-top:3px;font-family:var(--mono)}
   @media(max-width:900px){ .ostatrow{grid-template-columns:repeat(2,1fr)} .ogrid{grid-template-columns:1fr} }
   .srcbadge{font-size:10px;font-weight:700;letter-spacing:.4px;padding:2px 8px;border-radius:10px;text-transform:uppercase}
   .srcbadge.poly{background:#12241a;color:var(--pos)}
@@ -765,7 +770,7 @@
         <button data-g="weekly">Weekly</button>
         <button data-g="monthly" class="active">Monthly</button>
       </div>
-      <div class="note" style="margin:0">Realized options P&amp;L from your trade history (last ~1yr) — <span class="muted">cash basis: premium collected − buybacks/closing losses. Assignments &amp; expirations already booked. Options are their own P&amp;L universe (assigned stock is separate).</span></div>
+      <div class="note" style="margin:0">What you made in options on <b>closed positions</b> (last ~1yr) — <span class="muted">each position's realized P&amp;L booked on its close date (buyback, expiry, or assignment). Split by strategy so wheel income (CSP / covered call) is separate from directional long calls/LEAPs. Open positions show unrealized only.</span></div>
     </div>
     <div id="opt-body"><div class="ccmsg">Loading options performance…</div></div>
   </section>
@@ -944,7 +949,7 @@ function optChart(series){
   series.forEach((s,i)=>{
     const pos=s.net>=0, y=pos?by(s.net):zeroY, h=Math.max(1,Math.abs(by(s.net)-zeroY));
     const c=pos?'var(--pos)':'var(--neg)';
-    bars+=`<rect x="${bx(i).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${c}" fill-opacity=".82"><title>${s.period}: ${_priv?_MASK:usd(s.net)} · ${s.trades} trades</title></rect>`;
+    bars+=`<rect x="${bx(i).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${c}" fill-opacity=".82"><title>${s.period}: ${_priv?_MASK:usd(s.net)} · ${s.positions} closed</title></rect>`;
   });
   // cumulative line
   const pts=series.map((s,i)=>`${(bx(i)+bw/2).toFixed(1)},${cy(s.cumulative).toFixed(1)}`).join(' ');
@@ -967,22 +972,28 @@ function renderOptions(){
   const d=_optData; if(!d) return;
   const t=d.totals, series=d.series[_optGran]||[];
   const sgn=v=>(v>=0?'pos':'neg');
+  const win=r=>r.win_rate==null?'<span class="muted">—</span>':`<span class="${r.win_rate>=70?'pos':r.win_rate>=50?'':'neg'}">${r.win_rate}%</span>`;
   const cards=`<div class="ostatrow">
-    ${optStat('NET REALIZED P&L', (_priv?_MASK:usd(t.net)), sgn(t.net))}
-    ${optStat('PREMIUM COLLECTED', (_priv?_MASK:usd(t.premium_in)), 'pos')}
-    ${optStat('BUYBACKS / CLOSES', (_priv?_MASK:usd(t.paid_out)), 'neg')}
-    ${optStat('CLOSED TRADES', t.trades.toLocaleString(), '')}
+    ${optStat('REALIZED · CLOSED', (_priv?_MASK:usd(t.realized)), sgn(t.realized))}
+    ${optStat('CLOSED POSITIONS', (t.closed_positions||0).toLocaleString(), '')}
+    ${optStat('WIN RATE', (t.win_rate==null?'—':t.win_rate+'%'), (t.win_rate>=60?'pos':''))}
+    ${optStat('AVG / POSITION', (_priv?_MASK:usd(t.avg_per_position)), sgn(t.avg_per_position))}
     ${optStat('OPEN · UNREALIZED', (_priv?_MASK:usd(t.unrealized_open)), sgn(t.unrealized_open))}
   </div>`;
-  const win=r=>r.win_rate==null?'<span class="muted">—</span>':`<span class="${r.win_rate>=70?'pos':r.win_rate>=50?'':'neg'}">${r.win_rate}%</span>`;
+  // strategy split — wheel income (CSP / covered call) vs directional long options, never blended
+  const stratCards=(d.by_strategy||[]).filter(s=>s.positions).map(s=>`
+    <div class="ostrat ${sgn(s.net)}"><div class="ol">${s.strategy}</div>
+      <div class="ov ${sgn(s.net)}">${_priv?_MASK:usd(s.net)}</div>
+      <div class="ostratsub">${s.positions} closed · ${win(s)} win</div></div>`).join('');
+  const strategy=`<div class="opanel"><h3 class="rech3">By strategy · realized on closed positions <span class="muted">· wheel income vs directional long options</span></h3>
+    <div class="ostratrow">${stratCards}</div></div>`;
   const trows=d.by_ticker.map(r=>`<tr>
     <td><b>${r.symbol}</b>${r.open?' <span class="opill">open</span>':''}</td>
     <td class="r ${sgn(r.net)}">${_priv?_MASK:usd(r.net)}</td>
-    <td class="r">${r.trades}</td>
-    <td class="r muted">${r.puts}P / ${r.calls}C</td>
+    <td class="r">${r.positions}</td>
     <td class="r">${win(r)}</td></tr>`).join('');
-  const table=`<div class="opanel"><h3 class="rech3">By ticker · realized P&L</h3>
-    <table class="otbl"><thead><tr><th>Ticker</th><th class="r">Net P&L</th><th class="r">Trades</th><th class="r">Put/Call</th><th class="r">Win</th></tr></thead>
+  const table=`<div class="opanel"><h3 class="rech3">By ticker · realized on closed positions</h3>
+    <table class="otbl"><thead><tr><th>Ticker</th><th class="r">Realized</th><th class="r">Closed</th><th class="r">Win</th></tr></thead>
     <tbody>${trows}</tbody></table></div>`;
   const roleLbl={short_put:'CSP',long_call:'LEAP/Call',covered_call:'Cov. Call',long_put:'Long Put'};
   const oprows=d.open_positions.map(p=>`<tr>
@@ -995,7 +1006,8 @@ function renderOptions(){
     <table class="otbl"><thead><tr><th>Position</th><th class="r">Qty</th><th class="r">Strike</th><th class="r">DTE</th><th class="r">Unreal.</th></tr></thead>
     <tbody>${oprows}</tbody></table></div>`:'';
   document.getElementById('opt-body').innerHTML=cards
-    +`<div class="opanel"><h3 class="rech3">Realized P&L · ${_optGran} <span class="muted">· ${d.from} → ${d.to} · bars = per-period, line = cumulative</span></h3>${optChart(series)}</div>`
+    +strategy
+    +`<div class="opanel"><h3 class="rech3">Realized P&L · ${_optGran} <span class="muted">· ${d.from} → ${d.to} · each position booked on its close date · line = cumulative</span></h3>${optChart(series)}</div>`
     +`<div class="ogrid">${table}${opentbl}</div>`;
 }
 document.querySelectorAll('#opt-gran button').forEach(b=>b.onclick=()=>setOptGran(b.dataset.g));
