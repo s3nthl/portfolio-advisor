@@ -13,7 +13,7 @@ the browser OAuth flow themselves; creds are never handled in chat.
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import config
@@ -558,6 +558,50 @@ def instrument_fundamentals(symbol: str) -> dict:
         }
     except Exception:
         return {}
+
+
+def fetch_option_transactions(days: int = 365) -> list[dict]:
+    """Read-only pull of the account's OPTION trade history (for realized P&L).
+
+    Returns one record per option transaction (Schwab cleanly separates option
+    trades from stock — each has one OPTION leg + a cash leg), with `net` = the
+    signed realized cash flow AFTER fees: sell-to-open premium is positive, a
+    buy-to-close is negative, and assignments/expirations (RECEIVE_AND_DELIVER)
+    are 0 (the premium was already booked at open). `days` is capped by Schwab's
+    ~1-year transaction lookback. GET only — no order endpoint touched.
+    """
+    client = _get_client()
+    h = _resolve_account_hash(client)
+    end = datetime.now(timezone.utc)
+    start = end - timedelta(days=min(days, 365))
+    resp = client.get_transactions(h, start_date=start, end_date=end)
+    if resp.status_code != 200:
+        raise RuntimeError(f"Schwab transactions HTTP {resp.status_code}")
+    out: list[dict] = []
+    for t in resp.json():
+        legs = t.get("transferItems") or []
+        opt_legs = [ti for ti in legs
+                    if (ti.get("instrument") or {}).get("assetType") == "OPTION"]
+        if not opt_legs:
+            continue
+        leg = opt_legs[0]                       # transactions carry a single underlying
+        ins = leg.get("instrument") or {}
+        try:
+            contracts = float(leg.get("amount") or 0)
+        except Exception:
+            contracts = 0.0
+        out.append({
+            "date": (t.get("tradeDate") or "")[:10],
+            "type": t.get("type"),               # TRADE | RECEIVE_AND_DELIVER
+            "position_id": t.get("position_id") or t.get("positionId"),
+            "underlying": ins.get("underlyingSymbol") or ins.get("symbol"),
+            "kind": ins.get("putCall"),          # PUT | CALL
+            "symbol": ins.get("symbol"),
+            "contracts": contracts,               # signed (+long / -short)
+            "effect": leg.get("positionEffect"),  # OPENING | CLOSING
+            "net": round(float(t.get("netAmount") or 0), 2),   # signed realized cash, after fees
+        })
+    return out
 
 
 def load_book_from_snapshot(path: Path | None = None) -> Book:

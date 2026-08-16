@@ -188,6 +188,22 @@
     background:var(--panel3);color:var(--muted);font-size:17px;line-height:1;cursor:pointer;
     display:grid;place-items:center;transition:color .15s,border-color .15s}
   .fwarrow:hover{color:var(--txt);border-color:var(--accent)}
+  /* options performance tab */
+  .ostatrow{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:4px 0 14px}
+  .ostat{background:var(--panel);border:1px solid var(--hairline);border-radius:12px;padding:14px 16px}
+  .ol{font-size:10px;letter-spacing:.5px;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+  .ov{font-family:var(--display);font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+  .ov.pos{color:var(--pos)} .ov.neg{color:var(--neg)}
+  .opanel{background:var(--panel);border:1px solid var(--hairline);border-radius:12px;padding:15px 18px;margin-top:14px}
+  .ogrid{display:grid;grid-template-columns:1.05fr .95fr;gap:14px}
+  .otbl{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+  .otbl th{color:var(--muted);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;padding:6px 9px;text-align:left;border-bottom:1px solid var(--hairline)}
+  .otbl td{padding:7px 9px;border-bottom:1px solid var(--hairline)}
+  .otbl td.r,.otbl th.r{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .otbl td.pos{color:var(--pos)} .otbl td.neg{color:var(--neg)}
+  .otbl tr:hover td{background:var(--panel3)}
+  .opill{font-size:9.5px;background:var(--accent-weak);color:var(--accent);border-radius:5px;padding:1px 6px;margin-left:5px;vertical-align:middle}
+  @media(max-width:900px){ .ostatrow{grid-template-columns:repeat(2,1fr)} .ogrid{grid-template-columns:1fr} }
   .srcbadge{font-size:10px;font-weight:700;letter-spacing:.4px;padding:2px 8px;border-radius:10px;text-transform:uppercase}
   .srcbadge.poly{background:#12241a;color:var(--pos)}
   .srcbadge.fmp{background:#332810;color:var(--hibeta)}
@@ -653,6 +669,7 @@
     <button data-tab="sector"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span>Sector</span></button>
     <button data-tab="coveredcalls"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.6-3 7.6-7 8.7-4-1.1-7-4.1-7-8.7V6z"/></svg><span>Covered Calls</span></button>
     <button data-tab="cspselect"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/></svg><span>CSP Selector</span></button>
+    <button data-tab="options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><rect x="5" y="11" width="3.2" height="8" rx="1"/><rect x="10.4" y="6" width="3.2" height="13" rx="1"/><rect x="15.8" y="13" width="3.2" height="6" rx="1"/></svg><span>Options P&L</span></button>
     <button data-tab="gex"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 20V11M9.3 20V5M14.6 20V14M20 20V8"/></svg><span>GEX</span></button>
     <button data-tab="recession"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h3.5l2.5 6 4-15 2.5 9H21"/></svg><span>Macro</span></button>
     <button data-tab="command"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 8h16M4 16h16"/><circle cx="10" cy="8" r="2.3" fill="var(--bg)"/><circle cx="15" cy="16" r="2.3" fill="var(--bg)"/></svg><span>Command</span></button>
@@ -736,6 +753,18 @@
     </div>
     <div id="csp-term"></div>
     <div id="csp-body"></div>
+  </section>
+
+  <section class="tab" id="tab-options">
+    <div class="sec" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:0">
+      <div class="viewtoggle" id="opt-gran">
+        <button data-g="daily">Daily</button>
+        <button data-g="weekly">Weekly</button>
+        <button data-g="monthly" class="active">Monthly</button>
+      </div>
+      <div class="note" style="margin:0">Realized options P&amp;L from your trade history (last ~1yr) — <span class="muted">cash basis: premium collected − buybacks/closing losses. Assignments &amp; expirations already booked. Options are their own P&amp;L universe (assigned stock is separate).</span></div>
+    </div>
+    <div id="opt-body"><div class="ccmsg">Loading options performance…</div></div>
   </section>
 
   <section class="tab" id="tab-gex">
@@ -880,6 +909,94 @@ function bar(pctVal, color, max){
   return `<div class="bar"><span style="width:${w}%;background:${color}"></span></div>`;
 }
 
+// ---- Options performance: realized P&L from trade history ----
+let _optData=null, _optGran='monthly', _optLoaded=false;
+async function loadOptions(force){
+  if(_optLoaded && !force && _optData){ renderOptions(); return; }
+  const host=document.getElementById('opt-body');
+  host.innerHTML='<div class="ccmsg">⟳ Pulling ~1yr of option trades…</div>';
+  try{
+    const d=await (await fetch('/api/options-performance'+(force?'?force=1':''))).json();
+    if(d.status==='offline'){ host.innerHTML='<div class="ccmsg">Options performance needs the live Schwab source.</div>'; return; }
+    if(d.status!=='ok'){ host.innerHTML=`<div class="err">Options: ${d.detail||d.error||'failed'}</div>`; return; }
+    _optData=d; _optLoaded=true; renderOptions();
+  }catch(e){ host.innerHTML=`<div class="err">Options performance failed: ${e.message}</div>`; }
+}
+function setOptGran(g){ _optGran=g;
+  document.querySelectorAll('#opt-gran button').forEach(b=>b.classList.toggle('active',b.dataset.g===g));
+  if(_optData) renderOptions();
+}
+function optChart(series){
+  if(!series.length) return '<div class="ccmsg">No trades in this window.</div>';
+  const W=980,H=300,pL=8,pR=8,pT=18,pB=42,iw=W-pL-pR,ih=H-pT-pB;
+  const n=series.length, gap=Math.min(10,iw/n*0.25), bw=Math.max(2,(iw/n)-gap);
+  const nets=series.map(s=>s.net), cums=series.map(s=>s.cumulative);
+  const maxN=Math.max(1,...nets), minN=Math.min(0,...nets);
+  const span=(maxN-minN)||1, zeroY=pT+ih*(maxN/span);
+  const bx=i=>pL+i*(iw/n)+(iw/n-bw)/2;
+  const by=v=>pT+ih*((maxN-v)/span);
+  const cmax=Math.max(...cums,0),cmin=Math.min(...cums,0),cspan=(cmax-cmin)||1;
+  const cy=v=>pT+ih*((cmax-v)/cspan);
+  let bars='';
+  series.forEach((s,i)=>{
+    const pos=s.net>=0, y=pos?by(s.net):zeroY, h=Math.max(1,Math.abs(by(s.net)-zeroY));
+    const c=pos?'var(--pos)':'var(--neg)';
+    bars+=`<rect x="${bx(i).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${c}" fill-opacity=".82"><title>${s.period}: ${_priv?_MASK:usd(s.net)} · ${s.trades} trades</title></rect>`;
+  });
+  // cumulative line
+  const pts=series.map((s,i)=>`${(bx(i)+bw/2).toFixed(1)},${cy(s.cumulative).toFixed(1)}`).join(' ');
+  const line=`<polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2" opacity=".9"/>`;
+  const lastC=series[series.length-1];
+  const dot=`<circle cx="${(bx(n-1)+bw/2).toFixed(1)}" cy="${cy(lastC.cumulative).toFixed(1)}" r="4" fill="var(--accent)"/>`;
+  // x labels — thin them if crowded
+  const step=Math.ceil(n/14);
+  let labs='';
+  series.forEach((s,i)=>{ if(i%step) return;
+    const lbl=_optGran==='monthly'?s.period.slice(2):(_optGran==='weekly'?s.period.slice(5):s.period.slice(5));
+    labs+=`<text x="${(bx(i)+bw/2).toFixed(1)}" y="${H-pB+16}" text-anchor="middle" class="axl" style="font-size:10px">${lbl}</text>`;
+  });
+  const zline=`<line x1="${pL}" y1="${zeroY.toFixed(1)}" x2="${W-pR}" y2="${zeroY.toFixed(1)}" stroke="var(--hairline2)" stroke-dasharray="3 3"/>`;
+  return `<svg viewBox="0 0 ${W} ${H}" class="optchart" style="width:100%;height:auto">${zline}${bars}${line}${dot}${labs}
+    <text x="${pL}" y="${pT-4}" class="axl" style="font-size:10px;fill:var(--accent)">cumulative ${_priv?_MASK:usd(lastC.cumulative)}</text></svg>`;
+}
+function optStat(label,val,cls){ return `<div class="ostat"><div class="ol">${label}</div><div class="ov ${cls||''}">${val}</div></div>`; }
+function renderOptions(){
+  const d=_optData; if(!d) return;
+  const t=d.totals, series=d.series[_optGran]||[];
+  const sgn=v=>(v>=0?'pos':'neg');
+  const cards=`<div class="ostatrow">
+    ${optStat('NET REALIZED P&L', (_priv?_MASK:usd(t.net)), sgn(t.net))}
+    ${optStat('PREMIUM COLLECTED', (_priv?_MASK:usd(t.premium_in)), 'pos')}
+    ${optStat('BUYBACKS / CLOSES', (_priv?_MASK:usd(t.paid_out)), 'neg')}
+    ${optStat('CLOSED TRADES', t.trades.toLocaleString(), '')}
+    ${optStat('OPEN · UNREALIZED', (_priv?_MASK:usd(t.unrealized_open)), sgn(t.unrealized_open))}
+  </div>`;
+  const win=r=>r.win_rate==null?'<span class="muted">—</span>':`<span class="${r.win_rate>=70?'pos':r.win_rate>=50?'':'neg'}">${r.win_rate}%</span>`;
+  const trows=d.by_ticker.map(r=>`<tr>
+    <td><b>${r.symbol}</b>${r.open?' <span class="opill">open</span>':''}</td>
+    <td class="r ${sgn(r.net)}">${_priv?_MASK:usd(r.net)}</td>
+    <td class="r">${r.trades}</td>
+    <td class="r muted">${r.puts}P / ${r.calls}C</td>
+    <td class="r">${win(r)}</td></tr>`).join('');
+  const table=`<div class="opanel"><h3 class="rech3">By ticker · realized P&L</h3>
+    <table class="otbl"><thead><tr><th>Ticker</th><th class="r">Net P&L</th><th class="r">Trades</th><th class="r">Put/Call</th><th class="r">Win</th></tr></thead>
+    <tbody>${trows}</tbody></table></div>`;
+  const roleLbl={short_put:'CSP',long_call:'LEAP/Call',covered_call:'Cov. Call',long_put:'Long Put'};
+  const oprows=d.open_positions.map(p=>`<tr>
+    <td><b>${p.symbol}</b> <span class="muted">${roleLbl[p.role]||p.kind}</span></td>
+    <td class="r">${p.contracts>0?'+':''}${p.contracts}</td>
+    <td class="r muted">$${p.strike}</td>
+    <td class="r muted">${p.dte}d</td>
+    <td class="r ${sgn(p.pl_open)}">${_priv?_MASK:usd(p.pl_open)}</td></tr>`).join('');
+  const opentbl=d.open_positions.length?`<div class="opanel"><h3 class="rech3">Open positions · unrealized</h3>
+    <table class="otbl"><thead><tr><th>Position</th><th class="r">Qty</th><th class="r">Strike</th><th class="r">DTE</th><th class="r">Unreal.</th></tr></thead>
+    <tbody>${oprows}</tbody></table></div>`:'';
+  document.getElementById('opt-body').innerHTML=cards
+    +`<div class="opanel"><h3 class="rech3">Realized P&L · ${_optGran} <span class="muted">· ${d.from} → ${d.to} · bars = per-period, line = cumulative</span></h3>${optChart(series)}</div>`
+    +`<div class="ogrid">${table}${opentbl}</div>`;
+}
+document.querySelectorAll('#opt-gran button').forEach(b=>b.onclick=()=>setOptGran(b.dataset.g));
+
 // ---- privacy mode: hide/show all dollar values across every tab ----
 function updatePrivBtn(){
   const b=document.getElementById('privtoggle'); if(!b) return;
@@ -896,6 +1013,7 @@ function rerenderPriv(){
   try{ if(_ideasData) renderIdeas(_ideasData); }catch(e){}
   try{ if(_fundData) renderFundamentals(_fundData); }catch(e){}
   try{ if(_lastHistory) renderHistory(_lastHistory); }catch(e){}
+  try{ if(_optData) renderOptions(); }catch(e){}
 }
 function togglePriv(){
   _priv=!_priv; localStorage.setItem('port_priv',_priv?'1':'0');
@@ -910,6 +1028,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   b.classList.add('active');
   document.getElementById('tab-'+b.dataset.tab).classList.add('active');
   if(b.dataset.tab==='coveredcalls') loadCoveredCalls();
+  if(b.dataset.tab==='options') loadOptions();
   if(b.dataset.tab==='fundamentals') openFundamentals();
   if(b.dataset.tab==='ideas') loadIdeas();
   if(b.dataset.tab==='ai') loadAI();

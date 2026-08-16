@@ -42,11 +42,13 @@ from ingest.schwab_source import (
     daily_closes,
     fetch_call_chains,
     fetch_full_chain,
+    fetch_option_transactions,
     fetch_put_chain,
     fetch_ytd_external_flows,
     instrument_fundamentals,
     monthly_closes,
 )
+from analytics.options_perf import build_performance
 from analytics.csp_selector import recommend_csps_multi
 from analytics import gex as gexmod
 from analytics.gex import compute_gex
@@ -173,6 +175,50 @@ def api_refresh(force: bool = False) -> JSONResponse:
     }
     import time as _time
     _REFRESH_CACHE.update(t=_time.time(), payload=payload)
+    return JSONResponse(payload)
+
+
+_OPTPERF_CACHE: dict = {"t": 0.0, "payload": None}
+_OPTPERF_TTL = 600  # trade history barely changes intraday -> cache 10 min
+
+
+@app.get("/api/options-performance")
+def api_options_performance(days: int = 365, force: bool = False) -> JSONResponse:
+    """Realized options P&L (last ~1yr of trades) bucketed daily/weekly/monthly,
+    per ticker, plus current open option positions with unrealized P&L."""
+    if config.CHAI_SOURCE != "schwab":
+        return JSONResponse({"status": "offline",
+                             "detail": "Options performance needs the live Schwab source."})
+    import time as _time
+    if (not force and _OPTPERF_CACHE["payload"] is not None
+            and _time.time() - _OPTPERF_CACHE["t"] < _OPTPERF_TTL):
+        return JSONResponse({**_OPTPERF_CACHE["payload"], "cached": True})
+    try:
+        txns = fetch_option_transactions(days)
+    except Exception as exc:
+        return JSONResponse(status_code=502,
+                            content={"error": "txn_fetch_failed", "detail": str(exc)})
+    # current open option positions (unrealized) from the live book
+    open_positions, as_of = [], None
+    try:
+        book = load_book()
+        today = book.as_of
+        as_of = str(today)
+        for o in book.options:
+            open_positions.append({
+                "symbol": o.symbol, "underlying": o.symbol,   # OptionPos.symbol is the underlying
+                "kind": o.kind, "contracts": o.qty, "strike": o.strike,
+                "expiry": str(o.expiry), "dte": o.dte(today),
+                "pl_open": o.pl_open, "notional": o.notional,
+                "role": ("short_put" if (o.kind == "PUT" and o.qty < 0) else
+                         "long_call" if (o.kind == "CALL" and o.qty > 0) else
+                         "covered_call" if (o.kind == "CALL" and o.qty < 0) else
+                         "long_put"),
+            })
+    except Exception:
+        open_positions = []
+    payload = build_performance(txns, open_positions, as_of=as_of)
+    _OPTPERF_CACHE.update(t=_time.time(), payload=payload)
     return JSONResponse(payload)
 
 
