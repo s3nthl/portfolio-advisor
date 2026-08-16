@@ -459,7 +459,9 @@
   .fundhdr{font-family:var(--mono);font-size:17px;font-weight:700;letter-spacing:.5px;margin:2px 0 2px}
   .fundsec{margin-top:6px}
   .fundsec h3{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:600;margin:16px 0 9px;padding-bottom:5px;border-bottom:1px solid var(--border)}
-  .fundgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(248px,1fr));gap:12px}
+  /* auto-FILL (not auto-fit): keeps empty tracks so a row with few cards doesn't
+     stretch them wide — every card stays one uniform size (fixes the huge earnings box). */
+  .fundgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(236px,1fr));gap:12px}
   .fundcard{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent 45%),var(--panel);
     border:1px solid var(--hairline);border-radius:var(--r);padding:11px 13px 8px;box-shadow:var(--sh-1);cursor:pointer;
     perspective:1500px;
@@ -474,7 +476,8 @@
   .fundcard.ok:hover{border-color:rgba(227,171,79,.55);box-shadow:var(--sh-3),0 0 22px 2px rgba(227,171,79,.22)}
   .fundcard.weak:hover{border-color:rgba(242,105,95,.60);box-shadow:var(--sh-3),0 0 22px 2px rgba(242,105,95,.26)}
   /* flip-to-explain: click a tile to reveal a plain-English explainer on the back */
-  .fundflip{position:relative;min-height:182px;transform-style:preserve-3d;transition:transform .62s var(--ease)}
+  /* fixed floor + uniform widths (auto-fill) => every tile is the same height */
+  .fundflip{position:relative;min-height:196px;transform-style:preserve-3d;transition:transform .62s var(--ease)}
   .fundcard.flipped .fundflip{transform:rotateY(180deg)}
   .fundface{backface-visibility:hidden;-webkit-backface-visibility:hidden}
   .fundface.back{position:absolute;inset:0;transform:rotateY(180deg);display:flex;flex-direction:column;gap:5px;justify-content:center}
