@@ -110,7 +110,49 @@ def _positions(txns: list[dict]) -> list[dict]:
             "trades": g["trades"],
             "cap": _capital(strat, g["open_strike"], g["open_contracts"], g["open_debit"]),
             "days": max((max(g["dates"]) - min(g["dates"])).days, 1),
+            "_strike": g["open_strike"], "_qty": g["open_contracts"],
         })
+    return _pair_spreads(out)
+
+
+def _pair_spreads(positions: list[dict]) -> list[dict]:
+    """Merge same-underlying, same-open-day short+long legs of the SAME option type
+    into one spread position. A vertical's short and long legs otherwise get split
+    across the "Covered call"/"Long call" (or "CSP"/"Long put") buckets and wildly
+    distort both — e.g. a SPY 720/725 call spread shows as −$21k covered call and
+    +$18k long call instead of its true −$3k. Genuine single-leg wheel positions
+    (a short call/put with no same-day paired long) are untouched."""
+    SHORT_OF = {"Covered call": "CALL", "CSP": "PUT"}
+    LONG_OF = {"Long call / LEAP": "CALL", "Long put": "PUT"}
+    buckets: dict = defaultdict(list)
+    passthrough: list = []
+    for p in positions:
+        typ = SHORT_OF.get(p["strategy"]) or LONG_OF.get(p["strategy"])
+        if typ:
+            buckets[(p["underlying"], p["open_date"], typ)].append(p)
+        else:
+            passthrough.append(p)
+    out = list(passthrough)
+    for (under, _open, typ), grp in buckets.items():
+        shorts = [p for p in grp if p["strategy"] in SHORT_OF]
+        longs = [p for p in grp if p["strategy"] in LONG_OF]
+        if shorts and longs:                       # a vertical spread — merge the legs
+            strikes = [p["_strike"] for p in grp if p["_strike"]]
+            qty = max((p["_qty"] for p in grp), default=1) or 1
+            width = (max(strikes) - min(strikes)) if len(strikes) >= 2 else 0
+            cap = round(width * 100 * qty, 2) if width else round(max(p["cap"] for p in grp), 2)
+            out.append({
+                "underlying": under, "net": round(sum(p["net"] for p in grp), 2),
+                "closed": all(p["closed"] for p in grp),
+                "close_date": max(p["close_date"] for p in grp),
+                "open_date": min(p["open_date"] for p in grp),
+                "strategy": f"{typ.capitalize()} spread",
+                "trades": sum(p["trades"] for p in grp),
+                "cap": cap,
+                "days": max((max(p["close_date"] for p in grp) - min(p["open_date"] for p in grp)).days, 1),
+            })
+        else:
+            out.extend(grp)                         # single-leg (real wheel / directional)
     return out
 
 

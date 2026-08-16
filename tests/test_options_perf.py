@@ -52,6 +52,23 @@ def test_assignment_closes_a_short_put():
     assert d["totals"]["realized"] == 300.0 and d["totals"]["closed_positions"] == 1
 
 
+def test_same_day_call_legs_merge_into_a_spread():
+    # a SPY-style vertical: short 720 (loses) + long 725 (gains), opened same day.
+    # Must net into ONE "Call spread", not a huge covered-call loss + long-call gain.
+    txns = [
+        _txn("2026-05-04", -1000.0, 1, "SPY", "CALL", -1, "OPENING", strike=720.0),
+        _txn("2026-05-11", -21146.0, 1, "SPY", "CALL", 1, "CLOSING", strike=720.0),
+        _txn("2026-05-04", -5000.0, 2, "SPY", "CALL", 1, "OPENING", strike=725.0),
+        _txn("2026-05-11", 22884.0, 2, "SPY", "CALL", -1, "CLOSING", strike=725.0),
+    ]
+    d = build_performance(txns, [], as_of="2026-05-12")
+    strat = {s["strategy"]: s for s in d["by_strategy"]}
+    assert "Call spread" in strat and strat["Call spread"]["positions"] == 1
+    assert "Covered call" not in strat and "Long call / LEAP" not in strat
+    assert strat["Call spread"]["net"] == round(-1000 - 21146 - 5000 + 22884, 2)  # -4262
+    assert strat["Call spread"]["net"] == d["totals"]["realized"]
+
+
 def test_strategy_split_separates_wheel_from_directional():
     txns = [
         # CSP winner

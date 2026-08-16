@@ -1045,7 +1045,7 @@ function optDayDetail(ds){
   const rows=(_optDetail||[]).filter(p=>p.d===ds).sort((a,b)=>a.net-b.net);
   const net=rows.reduce((a,p)=>a+p.net,0);
   const dt=new Date(ds+'T00:00:00'); const hdr=`${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()]} ${_MON3[dt.getMonth()]} ${dt.getDate()}, ${dt.getFullYear()}`;
-  const stratShort={'CSP':'CSP','Covered call':'Cov. call','Long call / LEAP':'LEAP/call','Long put':'Long put','Spread / mixed':'Spread'};
+  const stratShort={'CSP':'CSP','Covered call':'Cov. call','Long call / LEAP':'LEAP/call','Long put':'Long put','Call spread':'Call spread','Put spread':'Put spread','Spread / mixed':'Spread'};
   const list=rows.map(p=>`<div class="cdrow">
     <span><b>${p.u}</b> <span class="muted">${stratShort[p.s]||p.s}</span> <span class="cdopened">opened ${p.opened.slice(5)}</span></span>
     <span class="${p.net>=0?'pos':'neg'}">${_priv?_MASK:usd(p.net)}</span></div>`).join('');
