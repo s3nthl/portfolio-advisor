@@ -222,6 +222,24 @@
   .wldot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;margin-right:1px}
   .wldot.day{background:var(--neg);box-shadow:0 0 6px rgba(242,105,95,.5)}
   .wldot.high{background:var(--hibeta);opacity:.85}
+  .wldot.none{background:var(--hairline2)}
+  /* compact List view — calm, scannable rows for a long list */
+  .wllist{display:flex;flex-direction:column;background:var(--panel2);border-radius:12px;box-shadow:var(--sh-1);overflow:hidden}
+  .wlentry:not(:last-child) .wlrow{border-bottom:1px solid var(--hairline)}
+  .wlrow{display:grid;grid-template-columns:162px 1fr 100px 86px 108px 24px;align-items:center;gap:14px;padding:11px 16px;cursor:pointer;transition:background .12s}
+  .wlrow:hover{background:rgba(255,255,255,.03)}
+  .wlrhead{display:flex;align-items:center;gap:8px;min-width:0}
+  .wlrsym{font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:.3px}
+  .wlrname{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .wlrpx{font-family:var(--mono);font-size:14px;font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+  .wlrchg{text-align:right;font-family:var(--mono);font-size:12.5px;font-weight:600}
+  .wlrchg .wlchg{font-size:12.5px}
+  .wlroff{text-align:right;font-family:var(--mono);font-size:12px}
+  .wllist .wlx{opacity:.4;text-align:center}
+  .wlrow:hover .wlx{opacity:1}
+  .wllist .wlnewsbox{padding:0 16px}
+  .wllist .wlnewsbox.open{padding:4px 16px 12px 42px}
+  @media(max-width:820px){ .wlrow{grid-template-columns:14px 64px 1fr 84px 26px} .wlrname,.wlroff{display:none} }
   .wltop{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
   .wlsym{font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:.4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
   .wlb{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;padding:1.5px 6px;border-radius:5px;font-family:var(--mono);background:rgba(255,255,255,.05);color:var(--dim);border:1px solid var(--hairline)}
@@ -881,6 +899,10 @@
         <button data-f="wheel">Wheel</button>
         <button data-f="safe">Safe</button>
       </div>
+      <div class="viewtoggle" id="wl-view">
+        <button data-v="list" class="active">List</button>
+        <button data-v="cards">Cards</button>
+      </div>
       <div class="note" style="margin:0">Your monitored list — live price, today's move, dip-from-highs &amp; news. <span class="muted">On-open alerts; set a per-ticker threshold on any card.</span></div>
     </div>
     <div id="wl-body"><div class="ccmsg">Loading watchlist…</div></div>
@@ -1066,7 +1088,7 @@ function bar(pctVal, color, max){
 }
 
 // ---- Watchlist: monitored tickers, dips & news ----
-let _wlData=null, _wlFilter='all', _wlLoaded=false;
+let _wlData=null, _wlFilter='all', _wlLoaded=false, _wlView='list';
 const _wlPx=v=>v==null?'—':'$'+(Math.abs(v)<10?v.toFixed(2):Math.abs(v)<1000?v.toFixed(2):Math.round(v).toLocaleString());  // public price, never masked
 async function loadWatchlist(force){
   if(_wlLoaded && !force && _wlData){ renderWatchlist(); return; }
@@ -1134,6 +1156,28 @@ function wlCard(i){
     <div class="wlnewsbox" id="wlnews-${i.symbol}"></div>
   </div>`;
 }
+function wlRow(i){
+  const up=(i.chg_pct||0)>=0;
+  const dot=i.day_alert?'<span class="wldot day"></span>':(i.high_alert?'<span class="wldot high"></span>':'<span class="wldot none"></span>');
+  const held=i.portfolio?'<span class="wlb held">held</span>':(i.list==='safe'?'<span class="wlb">safe</span>':'');
+  const chg=i.chg_pct==null?'<span class="muted">—</span>':`<span class="wlchg ${up?'pos':'neg'}">${up?'▲':'▼'}${Math.abs(i.chg_pct).toFixed(2)}%</span>`;
+  const off=i.off_high==null?'':`${i.off_high}%`;
+  return `<div class="wlentry">
+    <div class="wlrow" onclick="wlNews('${i.symbol}')" title="click for news">
+      <span class="wlrhead">${dot}<span class="wlrsym">${i.symbol}</span>${held}</span>
+      <span class="wlrname">${i.company||''}</span>
+      <span class="wlrpx">${_wlPx(i.price)}</span>
+      <span class="wlrchg">${chg}</span>
+      <span class="wlroff muted" title="below 52-wk high">${off?off+'<span class="wlofflbl"> off high</span>':''}</span>
+      <button class="wlx" onclick="event.stopPropagation();wlRemove('${i.symbol}')" title="remove">×</button>
+    </div>
+    <div class="wlnewsbox" id="wlnews-${i.symbol}"></div>
+  </div>`;
+}
+function wlViewSet(v){ _wlView=v;
+  document.querySelectorAll('#wl-view button').forEach(b=>b.classList.toggle('active',b.dataset.v===v));
+  renderWatchlist();
+}
 function renderWatchlist(){
   if(!_wlData) return;
   document.getElementById('wl-dip').value=_wlData.rule.dip_pct;
@@ -1150,11 +1194,13 @@ function renderWatchlist(){
   document.getElementById('wl-alertbar').innerHTML = n
     ? `<div class="wlalert"><span class="wlalicon">🔔</span> ${parts.join(' · ')} <span class="muted">— click 🔔 Dipping to see just these.</span></div>`
     : `<div class="wlalert ok"><span class="wlalicon">✓</span> nothing past your alert thresholds right now.</div>`;
-  document.getElementById('wl-body').innerHTML = items.length
-    ? `<div class="wlgrid">${items.map(wlCard).join('')}</div>`
-    : '<div class="ccmsg">No tickers match this filter.</div>';
+  const body = _wlView==='list'
+    ? `<div class="wllist">${items.map(wlRow).join('')}</div>`
+    : `<div class="wlgrid">${items.map(wlCard).join('')}</div>`;
+  document.getElementById('wl-body').innerHTML = items.length ? body : '<div class="ccmsg">No tickers match this filter.</div>';
 }
 document.querySelectorAll('#wl-filter button').forEach(b=>b.onclick=()=>wlFilterSet(b.dataset.f));
+document.querySelectorAll('#wl-view button').forEach(b=>b.onclick=()=>wlViewSet(b.dataset.v));
 (function(){ const a=document.getElementById('wl-add'); if(a) a.onkeydown=e=>{ if(e.key==='Enter') wlAdd(); };
   const dip=document.getElementById('wl-dip'); if(dip) dip.oninput=()=>wlSetDip(dip.value);
   const day=document.getElementById('wl-day'); if(day) day.oninput=()=>wlSetDay(day.value); })();
