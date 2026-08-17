@@ -114,7 +114,9 @@
   .rail nav button.active{color:var(--txt);background:rgba(91,151,245,.13)}
   .rail nav button.active::before{content:"";position:absolute;left:-12px;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;
     background:linear-gradient(180deg,var(--accent),var(--accent2))}
-  .rail nav button.ai-tab{color:var(--accent2)}
+  .rail nav button.ai-tab{color:var(--accent2);margin-top:16px}
+  .railsec{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--dim);padding:15px 10px 5px;user-select:none}
+  .railsec:first-of-type{padding-top:2px}
   .railgrow{flex:1}
   .railfoot{padding:10px 8px 0}
   .content{flex:1;min-width:0}
@@ -780,19 +782,27 @@
 <aside class="rail">
   <div class="railbrand">s3nthl<b>::</b><span>port</span></div>
   <nav>
-    <button data-tab="portfolio" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.3"/></svg><span>Portfolio</span></button>
-    <button data-tab="sector"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span>Sector</span></button>
-    <button data-tab="watchlist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.85-4.25 4.15 1 5.85L12 16.9l-5.25 2.75 1-5.85L3.5 9.65l5.9-.85z"/></svg><span>Watchlist</span></button>
-    <button data-tab="coveredcalls"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.6-3 7.6-7 8.7-4-1.1-7-4.1-7-8.7V6z"/></svg><span>Covered Calls</span></button>
-    <button data-tab="cspselect"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/></svg><span>CSP Selector</span></button>
-    <button data-tab="options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><rect x="5" y="11" width="3.2" height="8" rx="1"/><rect x="10.4" y="6" width="3.2" height="13" rx="1"/><rect x="15.8" y="13" width="3.2" height="6" rx="1"/></svg><span>Options P&L</span></button>
-    <button data-tab="gex"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 20V11M9.3 20V5M14.6 20V14M20 20V8"/></svg><span>GEX</span></button>
-    <button data-tab="recession"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h3.5l2.5 6 4-15 2.5 9H21"/></svg><span>Macro</span></button>
-    <button data-tab="command"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 8h16M4 16h16"/><circle cx="10" cy="8" r="2.3" fill="var(--bg)"/><circle cx="15" cy="16" r="2.3" fill="var(--bg)"/></svg><span>Command</span></button>
+    <div class="railsec">Portfolio</div>
+    <button data-tab="portfolio" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.3"/></svg><span>Overview</span></button>
+    <button data-tab="sector"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span>Sectors</span></button>
     <button data-tab="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 1.9"/></svg><span>History</span></button>
+
+    <div class="railsec">Wheel</div>
+    <button data-tab="cspselect"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/></svg><span>CSP Selector</span></button>
+    <button data-tab="coveredcalls"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.6-3 7.6-7 8.7-4-1.1-7-4.1-7-8.7V6z"/></svg><span>Covered Calls</span></button>
+    <button data-tab="options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><rect x="5" y="11" width="3.2" height="8" rx="1"/><rect x="10.4" y="6" width="3.2" height="13" rx="1"/><rect x="15.8" y="13" width="3.2" height="6" rx="1"/></svg><span>Options P&L</span></button>
+
+    <div class="railsec">Research</div>
+    <button data-tab="watchlist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.85-4.25 4.15 1 5.85L12 16.9l-5.25 2.75 1-5.85L3.5 9.65l5.9-.85z"/></svg><span>Watchlist</span></button>
     <button data-tab="fundamentals"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 4v16h16"/><path d="M8 16v-4M12.5 16V8M17 16v-6"/></svg><span>Fundamentals</span></button>
     <button data-tab="ideas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 18h5M10.5 21h3"/><path d="M12 3a6 6 0 0 0-3.8 10.6c.8.7 1.3 1.3 1.3 2.4h5c0-1.1.5-1.7 1.3-2.4A6 6 0 0 0 12 3z"/></svg><span>Ideas</span></button>
-    <button data-tab="ai" class="ai-tab"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 3l1.7 5.1L19 10l-5.3 1.9L12 17l-1.7-5.1L5 10l5.3-1.9z"/></svg><span>AI</span></button>
+    <button data-tab="gex"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 20V11M9.3 20V5M14.6 20V14M20 20V8"/></svg><span>GEX</span></button>
+
+    <div class="railsec">Macro</div>
+    <button data-tab="recession"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h3.5l2.5 6 4-15 2.5 9H21"/></svg><span>Macro</span></button>
+    <button data-tab="command"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 8h16M4 16h16"/><circle cx="10" cy="8" r="2.3" fill="var(--bg)"/><circle cx="15" cy="16" r="2.3" fill="var(--bg)"/></svg><span>Command</span></button>
+
+    <button data-tab="ai" class="ai-tab"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 3l1.7 5.1L19 10l-5.3 1.9L12 17l-1.7-5.1L5 10l5.3-1.9z"/></svg><span>Ask AI</span></button>
   </nav>
   <div class="railgrow"></div>
   <div class="railfoot"><span id="srcbadge" class="badge">—</span></div>
