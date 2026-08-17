@@ -80,6 +80,21 @@
     transition:color .16s,border-color .16s,background .16s}
   button#privtoggle:hover{color:var(--txt);border-color:var(--accent)}
   button#privtoggle.on{color:var(--accent2);border-color:var(--accent2);background:rgba(45,212,191,.08)}
+  /* Schwab session banner — big, bold, unmissable */
+  #authbanner:empty{display:none}
+  .authbar{display:flex;align-items:center;gap:16px;padding:16px 30px;font-family:var(--display)}
+  .authbar.expired{background:linear-gradient(90deg,#7f1d1d,#b91c1c);border-top:2px solid #ff5c5c;border-bottom:2px solid #ff5c5c;
+    box-shadow:0 8px 30px -8px rgba(220,38,38,.6);animation:authpulse 1.6s ease-in-out infinite}
+  .authbar.warn{background:linear-gradient(90deg,#5a3d0a,#8a5a0c);border-top:2px solid #f0b429;border-bottom:2px solid #f0b429}
+  @keyframes authpulse{0%,100%{box-shadow:0 8px 30px -8px rgba(220,38,38,.55)}50%{box-shadow:0 8px 40px -4px rgba(255,92,92,.9)}}
+  .authbar .authicon{font-size:30px;line-height:1;filter:drop-shadow(0 0 8px rgba(0,0,0,.5))}
+  .authbar .authtxt{flex:1;min-width:0}
+  .authbar .authttl{font-size:20px;font-weight:800;letter-spacing:.3px;color:#fff;text-transform:uppercase}
+  .authbar .authsub{font-size:13.5px;color:rgba(255,255,255,.92);margin-top:2px;font-family:var(--mono)}
+  .authbar .authsub code{background:rgba(0,0,0,.35);padding:2px 7px;border-radius:5px;font-weight:700;color:#ffe08a}
+  .authbar .authx{background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:8px;
+    padding:8px 12px;font-size:16px;cursor:pointer;line-height:1;flex:0 0 auto}
+  .authbar .authx:hover{background:rgba(0,0,0,.45)}
   button#refresh:hover{filter:brightness(1.06);box-shadow:0 1px 0 rgba(255,255,255,.3) inset,0 10px 26px -6px rgba(91,151,245,.75);transform:translateY(-1px)}
   button#refresh:active{transform:translateY(0) scale(.98)}
   button#refresh:disabled{opacity:.55;cursor:progress;filter:none;transform:none}
@@ -741,6 +756,7 @@
   <button id="privtoggle" title="Hide/show all dollar values (privacy mode)" onclick="togglePriv()">👁 Values</button>
   <button id="refresh">↻ Refresh</button>
 </header>
+<div id="authbanner"></div>
 <div id="ticker"></div>
 <main>
   <div id="err"></div>
@@ -1082,7 +1098,7 @@ async function loadOptions(force){
   try{
     const d=await (await fetch('/api/options-performance'+(force?'?force=1':''))).json();
     if(d.status==='offline'){ host.innerHTML='<div class="ccmsg">Options performance needs the live Schwab source.</div>'; return; }
-    if(d.status!=='ok'){ host.innerHTML=`<div class="err">Options: ${d.detail||d.error||'failed'}</div>`; return; }
+    if(d.status!=='ok'){ host.innerHTML=`<div class="err">Options: ${d.detail||d.error||'failed'}</div>`; if(authErr(d.detail||d.error)) showAuthBanner(); return; }
     _optData=d; _optLoaded=true; renderOptions();
   }catch(e){ host.innerHTML=`<div class="err">Options performance failed: ${e.message}</div>`; }
 }
@@ -1270,7 +1286,34 @@ async function refresh(force){
     renderHistory(h);
   }catch(e){
     document.getElementById('err').innerHTML = `<div class="err"><b>Refresh failed:</b> ${e.message}</div>`;
-  }finally{ btn.disabled=false; btn.textContent="↻ Refresh"; }
+    if(authErr(e.message)) showAuthBanner();
+  }finally{ btn.disabled=false; btn.textContent="↻ Refresh"; checkSchwabAuth(); }
+}
+
+// ---- Schwab session banner: big red alert when the OAuth token expires ----
+function authErr(txt){ return /invalid_grant|refresh token is invalid|unsupported_token_type|token[^.]*(expired|revoked)/i.test(txt||''); }
+function showAuthBanner(){
+  const el=document.getElementById('authbanner'); if(!el) return;
+  el.innerHTML=`<div class="authbar expired"><span class="authicon">🔴</span>
+    <div class="authtxt"><div class="authttl">Schwab session expired — live data can't refresh</div>
+    <div class="authsub">Re-authenticate: run <code>python scripts/reauth.py</code> in the repo (or tell Claude "re-auth"), then log into Schwab. ~30 seconds.</div></div>
+    <button class="authx" title="dismiss" onclick="document.getElementById('authbanner').innerHTML=''">✕</button></div>`;
+}
+async function checkSchwabAuth(){
+  const el=document.getElementById('authbanner'); if(!el) return;
+  try{
+    const s=await (await fetch('/api/schwab-status')).json();
+    if(!s.relevant){ el.innerHTML=''; return; }
+    if(s.expired){ showAuthBanner(); return; }
+    if(s.expiring_soon){
+      el.innerHTML=`<div class="authbar warn"><span class="authicon">⏳</span>
+        <div class="authtxt"><div class="authttl">Schwab session expires in ${s.hours_left}h</div>
+        <div class="authsub">Re-auth soon: <code>python scripts/reauth.py</code> (or ask Claude to "re-auth"). Expires ${s.expires_at}.</div></div>
+        <button class="authx" title="dismiss" onclick="document.getElementById('authbanner').innerHTML=''">✕</button></div>`;
+      return;
+    }
+    el.innerHTML='';
+  }catch(e){}
 }
 
 function render(d){
@@ -3082,6 +3125,7 @@ document.getElementById('ai-clear').onclick=()=>{ _aiMessages=[]; aiSave(); rend
 
 document.getElementById('refresh').onclick=()=>refresh(true); // manual = force fresh pull
 refresh(); // on load: reuse the cached pull if warm (instant), else pull once
+checkSchwabAuth(); // surface the big red banner immediately if the token is expired
 </script>
 </body>
 </html>

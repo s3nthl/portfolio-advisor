@@ -89,6 +89,32 @@ def health() -> dict:
     return {"status": "ok", "source": config.CHAI_SOURCE}
 
 
+@app.get("/api/schwab-status")
+def api_schwab_status() -> JSONResponse:
+    """Is the Schwab OAuth session still good? Refresh tokens live 7 days; we read
+    the token file's creation time and compute expiry — no network call. Drives the
+    big 'session expired' banner so the user re-auths before data goes stale."""
+    if config.CHAI_SOURCE != "schwab":
+        return JSONResponse({"relevant": False, "source": config.CHAI_SOURCE})
+    import json as _json
+    import time as _time
+    try:
+        blob = _json.loads(config.SCHWAB_TOKEN_PATH.read_text())
+        created = float(blob.get("creation_timestamp") or 0)
+        expires = created + 7 * 86400          # Schwab refresh-token lifetime
+        secs_left = expires - _time.time()
+        from datetime import datetime as _dt
+        return JSONResponse({
+            "relevant": True,
+            "expired": secs_left <= 0,
+            "expiring_soon": 0 < secs_left <= 24 * 3600,
+            "hours_left": round(secs_left / 3600, 1),
+            "expires_at": _dt.fromtimestamp(expires).strftime("%a %b %d, %-I:%M %p"),
+        })
+    except Exception as exc:
+        return JSONResponse({"relevant": True, "expired": True, "detail": str(exc)})
+
+
 _REFRESH_CACHE: dict = {"t": 0.0, "payload": None}
 _REFRESH_TTL = 120  # seconds — a page reload / back-navigation within this reuses
                     # the last pull instantly; the Refresh button forces a fresh one.
