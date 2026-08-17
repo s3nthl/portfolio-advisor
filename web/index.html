@@ -221,6 +221,14 @@
   .ostrat.pos{border-left:3px solid var(--pos)} .ostrat.neg{border-left:3px solid var(--neg)}
   .ostrat .ov{font-size:19px}
   .ostratsub{font-size:10.5px;color:var(--muted);margin-top:3px;font-family:var(--mono)}
+  /* period-scope pill above the dash cards */
+  .optscopebar{margin:2px 0 9px}
+  .optscope{font-size:11.5px;font-family:var(--mono)}
+  .optscope.on{color:var(--accent2)}
+  .optscope.muted{color:var(--muted)}
+  .optscope button{background:transparent;border:0;color:var(--accent2);font-size:11px;cursor:pointer;text-decoration:underline;font-family:var(--mono);margin-left:8px}
+  .optscope button:hover{color:var(--txt)}
+  .caltitle{cursor:pointer} .caltitle:hover{color:var(--accent2)}
   /* P&L trend chart — gold date labels, just for fun */
   .optchart .axl{fill:#e8b437;font-family:var(--mono)}
   /* P&L calendar heatmap */
@@ -964,7 +972,7 @@ function bar(pctVal, color, max){
 }
 
 // ---- Options performance: realized P&L from trade history ----
-let _optData=null, _optGran='monthly', _optLoaded=false, _optView='trend', _optCalMonth=null, _optWheel=false, _optDetail=[];
+let _optData=null, _optGran='monthly', _optLoaded=false, _optView='trend', _optCalMonth=null, _optWheel=false, _optDetail=[], _optScope=null;
 const _MON3=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const optIsWheel=p=>p.s==='CSP'||p.s==='Covered call';
 // aggregate the (optionally wheel-filtered) closed positions client-side, so the
@@ -1039,7 +1047,7 @@ function optCalendar(){
       wkNet+=v;
       const a=0.14+0.5*(Math.abs(v)/maxAbs);
       const bg=v>=0?`rgba(64,196,106,${a.toFixed(2)})`:`rgba(242,105,95,${a.toFixed(2)})`;
-      cellsHtml+=`<div class="calcell live" style="background:${bg}" onclick="optDayDetail('${ds}')" title="${cntDay[ds]} closed position(s)">
+      cellsHtml+=`<div class="calcell live" style="background:${bg}" onclick="optPickDay('${ds}')" title="${cntDay[ds]} closed position(s) — click to focus the dash on this day">
         <span class="calnum">${day}</span><span class="calamt ${v>=0?'pos':'neg'}">${optAmt(v)}</span></div>`;
     });
     const wkCls=wkNet>0?'pos':wkNet<0?'neg':'muted';
@@ -1049,7 +1057,7 @@ function optCalendar(){
   const netCls=monthNet>=0?'pos':'neg';
   return `<div class="calhdr">
       <button class="fwarrow" onclick="optCalNav(-1)" ${first?'':'disabled'}>‹</button>
-      <div class="caltitle">${_MON3[m-1]} ${y} <span class="${netCls}">· ${_priv?_MASK:usd(monthNet)}</span></div>
+      <div class="caltitle" onclick="optPickMonth('${_optCalMonth}')" title="focus the dash on this whole month">${_MON3[m-1]} ${y} <span class="${netCls}">· ${_priv?_MASK:usd(monthNet)}</span></div>
       <button class="fwarrow" onclick="optCalNav(1)" ${last?'':'disabled'}>›</button>
     </div>
     <div class="calgrid"><div class="calrow calhead">${dow}</div>${rows}</div>
@@ -1097,7 +1105,7 @@ function optChart(series){
   series.forEach((s,i)=>{
     const pos=s.net>=0, y=pos?by(s.net):zeroY, h=Math.max(1,Math.abs(by(s.net)-zeroY));
     const c=pos?'var(--pos)':'var(--neg)';
-    bars+=`<rect x="${bx(i).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${c}" fill-opacity=".82"><title>${s.period}: ${_priv?_MASK:usd(s.net)} · ${s.positions} closed</title></rect>`;
+    bars+=`<rect x="${bx(i).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${c}" fill-opacity=".82" style="cursor:pointer" onclick="optPickBar('${s.period}')"><title>${s.period}: ${_priv?_MASK:usd(s.net)} · ${s.positions} closed — click to focus the dash</title></rect>`;
   });
   // cumulative line
   const pts=series.map((s,i)=>`${(bx(i)+bw/2).toFixed(1)},${cy(s.cumulative).toFixed(1)}`).join(' ');
@@ -1116,25 +1124,54 @@ function optChart(series){
     <text x="${pL}" y="${pT-4}" class="axl" style="font-size:10px;fill:var(--accent)">cumulative ${_priv?_MASK:usd(lastC.cumulative)}</text></svg>`;
 }
 function optStat(label,val,cls){ return `<div class="ostat"><div class="ol">${label}</div><div class="ov ${cls||''}">${val}</div></div>`; }
-function renderOptions(){
-  if(!_optData) return;
-  const sgn=v=>(v>=0?'pos':'neg');
-  const win=r=>r.win_rate==null?'<span class="muted">—</span>':`<span class="${r.win_rate>=70?'pos':r.win_rate>=50?'':'neg'}">${r.win_rate}%</span>`;
-  // wheel filter: keep only CSP + covered call across the whole tab
-  _optDetail = _optWheel ? (_optData.closed_detail||[]).filter(optIsWheel) : (_optData.closed_detail||[]);
-  const c=optCompute(_optDetail), series=c.series[_optGran]||[];
+// the top "dash" cards — recomputed for the picked period (_optScope) or all-time
+function optCards(){
+  const base=_optDetail||[];
+  const scoped=_optScope? base.filter(_optScope.filter): base;
+  const c=optCompute(scoped), sgn=v=>v>=0?'pos':'neg';
   const openAll=_optData.open_positions||[];
-  const openPos=_optWheel? openAll.filter(p=>p.role==='short_put'||p.role==='covered_call') : openAll;
+  const openPos=_optWheel? openAll.filter(p=>p.role==='short_put'||p.role==='covered_call'): openAll;
   const unreal=openPos.reduce((a,p)=>a+(p.pl_open||0),0);
   const roc=c.roc_annual==null?'—':(c.roc_annual>=0?'+':'')+c.roc_annual+'%';
-  const cards=`<div class="ostatrow">
-    ${optStat('REALIZED · CLOSED', (_priv?_MASK:usd(c.realized)), sgn(c.realized))}
+  const pill=_optScope
+    ? `<span class="optscope on">▸ showing <b>${_optScope.label}</b><button onclick="optSetScope(null)">× back to all-time</button></span>`
+    : `<span class="optscope muted">All-time · click a ${_optView==='calendar'?'day (or the month title)':_optGran+' bar'} to focus the dash on it</span>`;
+  return `<div class="optscopebar">${pill}</div><div class="ostatrow">
+    ${optStat('REALIZED'+(_optScope?'':' · CLOSED'), (_priv?_MASK:usd(c.realized)), sgn(c.realized))}
     ${optStat('ROC · ANNUALIZED', (_priv?_MASK:roc), sgn(c.roc_annual||0))}
     ${optStat('AVG CAPITAL AT RISK', (_priv?_MASK:usdK(c.avg_capital)), '')}
     ${optStat('WIN RATE', (c.win_rate==null?'—':c.win_rate+'%'), (c.win_rate>=60?'pos':''))}
     ${optStat('CLOSED POSITIONS', c.closed.toLocaleString(), '')}
     ${optStat('OPEN · UNREALIZED', (_priv?_MASK:usd(unreal)), sgn(unreal))}
   </div>`;
+}
+function optSetScope(scope){ _optScope=scope; const el=document.getElementById('opt-cards'); if(el) el.innerHTML=optCards(); }
+function optPickDay(ds){
+  const dt=new Date(ds+'T00:00:00');
+  const lbl=`${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()]} ${_MON3[dt.getMonth()]} ${dt.getDate()}, ${dt.getFullYear()}`;
+  optSetScope({label:lbl, filter:p=>p.d===ds}); optDayDetail(ds);
+}
+function optPickMonth(mk){ const [y,m]=mk.split('-'); optSetScope({label:`${_MON3[+m-1]} ${y}`, filter:p=>p.d.slice(0,7)===mk}); }
+function optPickBar(period){
+  let lbl=period, filt;
+  if(_optGran==='monthly'){ const [y,m]=period.split('-'); lbl=`${_MON3[+m-1]} ${y}`; filt=p=>p.d.slice(0,7)===period; }
+  else if(_optGran==='weekly'){ lbl='week of '+period;
+    const wk=d=>{const dt=new Date(d+'T00:00:00');dt.setDate(dt.getDate()-((dt.getDay()+6)%7));return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;};
+    filt=p=>wk(p.d)===period; }
+  else { const dt=new Date(period+'T00:00:00'); lbl=`${_MON3[dt.getMonth()]} ${dt.getDate()}, ${dt.getFullYear()}`; filt=p=>p.d===period; }
+  optSetScope({label:lbl, filter:filt});
+}
+function renderOptions(){
+  if(!_optData) return;
+  const sgn=v=>(v>=0?'pos':'neg');
+  const win=r=>r.win_rate==null?'<span class="muted">—</span>':`<span class="${r.win_rate>=70?'pos':r.win_rate>=50?'':'neg'}">${r.win_rate}%</span>`;
+  // wheel filter: keep only CSP + covered call across the whole tab
+  _optDetail = _optWheel ? (_optData.closed_detail||[]).filter(optIsWheel) : (_optData.closed_detail||[]);
+  _optScope=null;   // a full re-render (wheel/view/frame change) resets to all-time
+  const c=optCompute(_optDetail), series=c.series[_optGran]||[];
+  const openAll=_optData.open_positions||[];
+  const openPos=_optWheel? openAll.filter(p=>p.role==='short_put'||p.role==='covered_call') : openAll;
+  const cards=`<div id="opt-cards">${optCards()}</div>`;
   // strategy split — wheel income (CSP / covered call) vs directional long options, never blended
   const stratCards=c.by_strategy.filter(s=>s.positions).map(s=>`
     <div class="ostrat ${sgn(s.net)}"><div class="ol">${s.strategy}</div>
