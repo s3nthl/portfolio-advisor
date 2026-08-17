@@ -249,6 +249,65 @@ def api_options_performance(years: int = 3, force: bool = False) -> JSONResponse
     return JSONResponse(payload)
 
 
+_WATCH_CACHE: dict = {"t": 0.0, "payload": None}
+_WATCH_TTL = 60
+
+
+@app.get("/api/watchlist")
+def api_watchlist(force: bool = False) -> JSONResponse:
+    """The monitored list with live price / today's move / dip-from-52wk-high and
+    on-open dip-alert flags (global rule + per-ticker overrides)."""
+    from ingest import watchlist as wl
+    import time as _time
+    if (not force and _WATCH_CACHE["payload"] is not None
+            and _time.time() - _WATCH_CACHE["t"] < _WATCH_TTL):
+        return JSONResponse({**_WATCH_CACHE["payload"], "cached": True})
+    try:
+        payload = wl.enriched()
+    except Exception as exc:
+        return JSONResponse(status_code=502, content={"error": "watchlist_failed", "detail": str(exc)})
+    _WATCH_CACHE.update(t=_time.time(), payload=payload)
+    return JSONResponse(payload)
+
+
+def _watch_invalidate():
+    _WATCH_CACHE.update(t=0.0, payload=None)
+
+
+@app.post("/api/watchlist/add")
+def api_watchlist_add(symbol: str) -> JSONResponse:
+    from ingest import watchlist as wl
+    wl.add(symbol); _watch_invalidate()
+    return api_watchlist(force=True)
+
+
+@app.post("/api/watchlist/remove")
+def api_watchlist_remove(symbol: str) -> JSONResponse:
+    from ingest import watchlist as wl
+    wl.remove(symbol); _watch_invalidate()
+    return api_watchlist(force=True)
+
+
+@app.post("/api/watchlist/rule")
+def api_watchlist_rule(dip_pct: float) -> JSONResponse:
+    from ingest import watchlist as wl
+    wl.set_rule(dip_pct); _watch_invalidate()
+    return api_watchlist(force=True)
+
+
+@app.post("/api/watchlist/ticker-alert")
+def api_watchlist_ticker_alert(symbol: str, pct: float | None = None) -> JSONResponse:
+    from ingest import watchlist as wl
+    wl.set_ticker_alert(symbol, pct); _watch_invalidate()
+    return api_watchlist(force=True)
+
+
+@app.get("/api/watchlist/news")
+def api_watchlist_news(symbol: str) -> JSONResponse:
+    from ingest import watchlist as wl
+    return JSONResponse(wl.news(symbol))
+
+
 @app.get("/api/covered-calls")
 def api_covered_calls() -> JSONResponse:
     """Covered-call recommendations from live chains (lazy — its own endpoint)."""

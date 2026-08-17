@@ -34,3 +34,4 @@ recession/data/
 recession/reports/signals.csv
 *.log
 .claude/
+watchlist.json

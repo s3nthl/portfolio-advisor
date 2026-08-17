@@ -203,6 +203,48 @@
     background:var(--panel3);color:var(--muted);font-size:17px;line-height:1;cursor:pointer;
     display:grid;place-items:center;transition:color .15s,border-color .15s}
   .fwarrow:hover{color:var(--txt);border-color:var(--accent)}
+  /* ===== Watchlist tab ===== */
+  #wl-add{background:var(--panel3);color:var(--txt);border:1px solid var(--hairline2);border-radius:var(--r-sm);padding:8px 13px;font-family:var(--mono);font-size:13px;width:150px;text-transform:uppercase;transition:border-color .16s,box-shadow .16s}
+  #wl-add:focus{outline:none;border-color:var(--accent);box-shadow:var(--glow)} #wl-add::placeholder{color:var(--muted);text-transform:none}
+  .wlrule{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--txt);background:var(--panel);border:1px solid var(--hairline);border-radius:var(--r-sm);padding:6px 12px}
+  .wlrule input{width:48px;background:var(--panel3);color:var(--txt);border:1px solid var(--hairline2);border-radius:6px;padding:3px 6px;font-family:var(--mono);font-weight:700;text-align:center}
+  .wlalert{display:flex;align-items:center;gap:10px;font-size:14px;font-family:var(--display);padding:12px 18px;border-radius:12px;margin:2px 0 14px;
+    background:linear-gradient(90deg,rgba(242,105,95,.16),rgba(242,105,95,.05));border:1px solid rgba(242,105,95,.35)}
+  .wlalert.ok{background:linear-gradient(90deg,rgba(64,196,106,.13),transparent);border-color:rgba(64,196,106,.3)}
+  .wlalicon{font-size:18px}
+  .wlgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:13px}
+  .wlcard{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent 40%),var(--panel);border:1px solid var(--hairline);border-radius:13px;padding:13px 15px 11px;transition:transform .15s var(--ease),box-shadow .15s,border-color .15s}
+  .wlcard:hover{transform:translateY(-2px);box-shadow:var(--sh-2);border-color:var(--hairline2)}
+  .wlcard.alert{border-color:rgba(242,105,95,.5);box-shadow:0 0 18px -2px rgba(242,105,95,.28)}
+  .wltop{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+  .wlsym{font-family:var(--mono);font-size:16px;font-weight:800;letter-spacing:.3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
+  .wlb{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;padding:1.5px 6px;border-radius:5px;font-family:var(--mono)}
+  .wlb.held{background:var(--accent-weak);color:var(--accent)} .wlb.safe{background:rgba(91,151,245,.13);color:#8fb4f7}
+  .wlb.cust{background:var(--panel3);color:var(--muted)} .wlb.miss{background:#332810;color:var(--hibeta)} .wlb.flag{background:#3a1a1a;color:var(--neg)}
+  .wlx{background:transparent;border:0;color:var(--dim);font-size:17px;line-height:1;cursor:pointer;padding:0 2px}
+  .wlx:hover{color:var(--neg)}
+  .wlname{font-size:11px;color:var(--muted);margin:1px 0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wlprice{display:flex;align-items:baseline;gap:9px;margin-bottom:9px}
+  .wlpx{font-family:var(--display);font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+  .wlchg{font-family:var(--mono);font-size:12.5px;font-weight:700}
+  .wlrange{margin-bottom:9px}
+  .wlbar{position:relative;height:5px;border-radius:3px;background:linear-gradient(90deg,var(--neg),var(--panel3) 45% 55%,var(--pos));opacity:.55}
+  .wlmark{position:absolute;top:50%;width:9px;height:9px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);box-shadow:0 0 0 2px var(--panel),0 1px 3px rgba(0,0,0,.6)}
+  .wlmark.a{background:var(--neg);box-shadow:0 0 0 2px var(--panel),0 0 8px var(--neg)}
+  .wlrangelbl{display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono);color:var(--muted);margin-top:4px}
+  .wlfoot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--hairline);padding-top:8px;margin-top:2px}
+  .wlalertset{font-size:10.5px;color:var(--muted);font-family:var(--mono)}
+  .wlalertset input{width:38px;background:var(--panel3);color:var(--txt);border:1px solid var(--hairline2);border-radius:5px;padding:2px 4px;font-family:var(--mono);text-align:center;font-size:11px}
+  .wlnewsbtn{background:transparent;border:0;color:var(--accent2);font-size:11px;cursor:pointer;font-family:var(--mono)}
+  .wlnewsbtn:hover{color:var(--txt)}
+  .wlnewsbox{display:none} .wlnewsbox.open{display:block;margin-top:9px;border-top:1px solid var(--hairline);padding-top:8px}
+  .wlnewsload{font-size:11px;color:var(--muted);padding:4px 0;font-style:italic}
+  .wlnewsitem{display:block;padding:5px 0;border-bottom:1px solid var(--hairline);text-decoration:none}
+  .wlnewsitem:last-child{border-bottom:0}
+  .wlnewshd{display:block;font-size:11.5px;color:var(--txt);line-height:1.35}
+  .wlnewsitem:hover .wlnewshd{color:var(--accent)}
+  .wlnewssrc{font-size:9.5px;color:var(--dim);font-family:var(--mono)}
+  @media(max-width:640px){ .wlgrid{grid-template-columns:1fr} }
   /* researched-ticker watchlist */
   .fundwatch{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin:0 0 6px}
   .fundwatch:empty{display:none}
@@ -736,6 +778,7 @@
   <nav>
     <button data-tab="portfolio" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.3"/></svg><span>Portfolio</span></button>
     <button data-tab="sector"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span>Sector</span></button>
+    <button data-tab="watchlist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.85-4.25 4.15 1 5.85L12 16.9l-5.25 2.75 1-5.85L3.5 9.65l5.9-.85z"/></svg><span>Watchlist</span></button>
     <button data-tab="coveredcalls"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.6-3 7.6-7 8.7-4-1.1-7-4.1-7-8.7V6z"/></svg><span>Covered Calls</span></button>
     <button data-tab="cspselect"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/></svg><span>CSP Selector</span></button>
     <button data-tab="options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><rect x="5" y="11" width="3.2" height="8" rx="1"/><rect x="10.4" y="6" width="3.2" height="13" rx="1"/><rect x="15.8" y="13" width="3.2" height="6" rx="1"/></svg><span>Options P&L</span></button>
@@ -807,6 +850,23 @@
     <div id="sector-donut-view" style="display:none"></div>
 
     <div class="note" id="sector-note"></div>
+  </section>
+
+  <section class="tab" id="tab-watchlist">
+    <div id="wl-alertbar"></div>
+    <div class="sec" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:0">
+      <input id="wl-add" placeholder="＋ add ticker" spellcheck="false" autocomplete="off" maxlength="6">
+      <div class="wlrule">Alert when <input id="wl-dip" type="number" min="1" max="90" step="1" value="15"><span class="muted">% below 52-wk high</span></div>
+      <div class="viewtoggle" id="wl-filter">
+        <button data-f="all" class="active">All</button>
+        <button data-f="alert">🔔 Dipping</button>
+        <button data-f="portfolio">Held</button>
+        <button data-f="wheel">Wheel</button>
+        <button data-f="safe">Safe</button>
+      </div>
+      <div class="note" style="margin:0">Your monitored list — live price, today's move, dip-from-highs &amp; news. <span class="muted">On-open alerts; set a per-ticker threshold on any card.</span></div>
+    </div>
+    <div id="wl-body"><div class="ccmsg">Loading watchlist…</div></div>
   </section>
 
   <section class="tab" id="tab-coveredcalls">
@@ -987,6 +1047,93 @@ function bar(pctVal, color, max){
   const w = Math.max(0, Math.min(100, (pctVal/(max||100))*100));
   return `<div class="bar"><span style="width:${w}%;background:${color}"></span></div>`;
 }
+
+// ---- Watchlist: monitored tickers, dips & news ----
+let _wlData=null, _wlFilter='all', _wlLoaded=false;
+const _wlPx=v=>v==null?'—':'$'+(Math.abs(v)<10?v.toFixed(2):Math.abs(v)<1000?v.toFixed(2):Math.round(v).toLocaleString());  // public price, never masked
+async function loadWatchlist(force){
+  if(_wlLoaded && !force && _wlData){ renderWatchlist(); return; }
+  const host=document.getElementById('wl-body');
+  if(!_wlData) host.innerHTML='<div class="ccmsg">⟳ Pulling live quotes for your list…</div>';
+  try{
+    const d=await (await fetch('/api/watchlist'+(force?'?force=1':''))).json();
+    if(d.status!=='ok'){ host.innerHTML=`<div class="err">Watchlist: ${d.detail||d.error||'failed'}</div>`; return; }
+    _wlData=d; _wlLoaded=true; renderWatchlist();
+  }catch(e){ host.innerHTML=`<div class="err">Watchlist failed: ${e.message}</div>`; }
+}
+function wlFilterSet(f){ _wlFilter=f;
+  document.querySelectorAll('#wl-filter button').forEach(b=>b.classList.toggle('active',b.dataset.f===f));
+  renderWatchlist();
+}
+async function wlAdd(){ const el=document.getElementById('wl-add'); const s=(el.value||'').trim().toUpperCase(); if(!s) return;
+  el.value=''; const d=await (await fetch('/api/watchlist/add?symbol='+encodeURIComponent(s),{method:'POST'})).json();
+  if(d.status==='ok'){ _wlData=d; renderWatchlist(); } }
+async function wlRemove(s){ const d=await (await fetch('/api/watchlist/remove?symbol='+encodeURIComponent(s),{method:'POST'})).json();
+  if(d.status==='ok'){ _wlData=d; renderWatchlist(); } }
+let _wlDipT=null;
+function wlSetDip(v){ clearTimeout(_wlDipT); _wlDipT=setTimeout(async()=>{
+  const d=await (await fetch('/api/watchlist/rule?dip_pct='+encodeURIComponent(v),{method:'POST'})).json();
+  if(d.status==='ok'){ _wlData=d; renderWatchlist(); } },500); }
+async function wlSetAlert(s,v){ const pct=(v===''||v==null)?'':'&pct='+encodeURIComponent(v);
+  const d=await (await fetch(`/api/watchlist/ticker-alert?symbol=${encodeURIComponent(s)}${pct}`,{method:'POST'})).json();
+  if(d.status==='ok'){ _wlData=d; renderWatchlist(); } }
+async function wlNews(s){
+  const box=document.getElementById('wlnews-'+s); if(!box) return;
+  if(box.classList.contains('open')){ box.classList.remove('open'); box.innerHTML=''; return; }
+  box.classList.add('open'); box.innerHTML='<div class="wlnewsload">loading news…</div>';
+  try{ const d=await (await fetch('/api/watchlist/news?symbol='+encodeURIComponent(s))).json();
+    if(!d.news||!d.news.length){ box.innerHTML='<div class="wlnewsload muted">no recent news</div>'; return; }
+    box.innerHTML=d.news.map(n=>`<a class="wlnewsitem" href="${n.url}" target="_blank" rel="noopener">
+      <span class="wlnewshd">${n.headline}</span><span class="wlnewssrc">${n.source||''} · ${_wlAgo(n.ts)}</span></a>`).join('');
+  }catch(e){ box.innerHTML='<div class="wlnewsload">news failed</div>'; }
+}
+function _wlAgo(ts){ if(!ts) return ''; const h=(Date.now()/1000-ts)/3600; return h<24?Math.round(h)+'h ago':Math.round(h/24)+'d ago'; }
+function wlCard(i){
+  const up=(i.chg_pct||0)>=0;
+  const badges=[i.portfolio?'<span class="wlb held">held</span>':'',
+    i.list==='safe'?'<span class="wlb safe">safe</span>':(i.list==='custom'?'<span class="wlb cust">custom</span>':''),
+    i.missed_earnings?'<span class="wlb miss" title="missed a recent quarter of earnings">⚠ earn</span>':'',
+    i.flagged?'<span class="wlb flag" title="flagged in your sheet">flagged</span>':''].join('');
+  const pos=i.range_pos==null?50:Math.max(0,Math.min(100,i.range_pos));
+  const chg=i.chg_pct==null?'':`<span class="wlchg ${up?'pos':'neg'}">${up?'▲':'▼'} ${Math.abs(i.chg_pct).toFixed(2)}%</span>`;
+  const offh=i.off_high==null?'<span class="muted">—</span>':`<span class="${i.alert?'neg':'muted'}">${i.off_high}% off high</span>`;
+  return `<div class="wlcard${i.alert?' alert':''}">
+    <div class="wltop"><div class="wlsym"><b>${i.symbol}</b>${badges}</div>
+      <button class="wlx" onclick="wlRemove('${i.symbol}')" title="remove from watchlist">×</button></div>
+    <div class="wlname">${i.company||''}</div>
+    <div class="wlprice"><span class="wlpx">${_wlPx(i.price)}</span>${chg}</div>
+    <div class="wlrange" title="52-week range">
+      <div class="wlbar"><span class="wlmark ${i.alert?'a':''}" style="left:${pos}%"></span></div>
+      <div class="wlrangelbl"><span>${_wlPx(i.low52)}</span>${offh}<span>${_wlPx(i.high52)}</span></div>
+    </div>
+    <div class="wlfoot">
+      <span class="wlalertset">alert ≥ <input type="number" min="1" max="90" value="${i.alert_pct}" onchange="wlSetAlert('${i.symbol}',this.value)" title="per-ticker dip threshold (blank = use global)">%</span>
+      <button class="wlnewsbtn" onclick="wlNews('${i.symbol}')">news ▾</button>
+    </div>
+    <div class="wlnewsbox" id="wlnews-${i.symbol}"></div>
+  </div>`;
+}
+function renderWatchlist(){
+  if(!_wlData) return;
+  document.getElementById('wl-dip').value=_wlData.rule.dip_pct;
+  let items=_wlData.items.slice();
+  if(_wlFilter==='alert') items=items.filter(i=>i.alert);
+  else if(_wlFilter==='portfolio') items=items.filter(i=>i.portfolio);
+  else if(_wlFilter==='wheel') items=items.filter(i=>i.list==='wheel');
+  else if(_wlFilter==='safe') items=items.filter(i=>i.list==='safe');
+  // dips + biggest-drawdown float to the top
+  items.sort((a,b)=>(b.alert?1:0)-(a.alert?1:0) || (b.off_high||0)-(a.off_high||0));
+  const n=_wlData.alerting||0;
+  document.getElementById('wl-alertbar').innerHTML = n
+    ? `<div class="wlalert"><span class="wlalicon">🔔</span> <b>${n}</b> of ${_wlData.items.length} are ≥ ${_wlData.rule.dip_pct}% below their 52-week high <span class="muted">— potential dip entries. Click 🔔 Dipping to see just those.</span></div>`
+    : `<div class="wlalert ok"><span class="wlalicon">✓</span> nothing past your ${_wlData.rule.dip_pct}% dip threshold right now.</div>`;
+  document.getElementById('wl-body').innerHTML = items.length
+    ? `<div class="wlgrid">${items.map(wlCard).join('')}</div>`
+    : '<div class="ccmsg">No tickers match this filter.</div>';
+}
+document.querySelectorAll('#wl-filter button').forEach(b=>b.onclick=()=>wlFilterSet(b.dataset.f));
+(function(){ const a=document.getElementById('wl-add'); if(a) a.onkeydown=e=>{ if(e.key==='Enter') wlAdd(); };
+  const dip=document.getElementById('wl-dip'); if(dip) dip.oninput=()=>wlSetDip(dip.value); })();
 
 // ---- Options performance: realized P&L from trade history ----
 let _optData=null, _optGran='monthly', _optLoaded=false, _optView='trend', _optCalMonth=null, _optWheel=false, _optDetail=[], _optScope=null;
@@ -1257,6 +1404,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
   b.classList.add('active');
   document.getElementById('tab-'+b.dataset.tab).classList.add('active');
+  if(b.dataset.tab==='watchlist') loadWatchlist();
   if(b.dataset.tab==='coveredcalls') loadCoveredCalls();
   if(b.dataset.tab==='options') loadOptions();
   if(b.dataset.tab==='fundamentals') openFundamentals();

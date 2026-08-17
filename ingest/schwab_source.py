@@ -560,6 +560,34 @@ def instrument_fundamentals(symbol: str) -> dict:
         return {}
 
 
+def rich_quotes(symbols: list[str]) -> dict:
+    """Live quote snapshot per symbol for the watchlist: last price, today's %
+    move, and the 52-week high/low (for the dip-from-high metric). One batch
+    call. Read-only. Handles class-B tickers (BRK.B -> Schwab 'BRK/B')."""
+    if not symbols:
+        return {}
+    client = _get_client()
+    req = {s: s.replace(".", "/") for s in symbols}      # BRK.B -> BRK/B
+    out: dict = {}
+    try:
+        r = client.get_quotes(list(req.values()))
+        j = r.json() if r.status_code == 200 else {}
+    except Exception:
+        j = {}
+    for sym, rq in req.items():
+        d = j.get(rq) or j.get(sym) or {}
+        q = d.get("quote") or {}
+        if not q:
+            continue
+        out[sym] = {
+            "price": q.get("lastPrice"), "chg": q.get("netChange"),
+            "chg_pct": q.get("netPercentChange"),
+            "high52": q.get("52WeekHigh"), "low52": q.get("52WeekLow"),
+            "open": q.get("openPrice"), "volume": q.get("totalVolume"),
+        }
+    return out
+
+
 def fetch_option_transactions(years: int = 3) -> list[dict]:
     """Read-only pull of the account's OPTION trade history (for realized P&L).
 

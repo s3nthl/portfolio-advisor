@@ -1,0 +1,471 @@
+[
+ {
+  "symbol": "AMD",
+  "company": "Advanced Micro Devices Inc",
+  "sector": "Semiconductors",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "VRT",
+  "company": "Vertiv Holdings Co",
+  "sector": "Tech Infra",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "PLTR",
+  "company": "Palantir Technologies Inc",
+  "sector": "Tech / Data",
+  "list": "wheel",
+  "portfolio": true
+ },
+ {
+  "symbol": "FUTU",
+  "company": "Futu Holdings Ltd",
+  "sector": "Financials",
+  "list": "wheel",
+  "portfolio": false,
+  "missed_earnings": true
+ },
+ {
+  "symbol": "SHOP",
+  "company": "Shopify Inc",
+  "sector": "Ecommerce",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "DELL",
+  "company": "Dell Technologies Inc",
+  "sector": "Tech",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "CRDO",
+  "company": "Credo Technology Group Holding Ltd",
+  "sector": "Computer Technology",
+  "list": "wheel",
+  "portfolio": true
+ },
+ {
+  "symbol": "ANET",
+  "company": "Arista Networks Inc",
+  "sector": "Tech/Cloud Infrastructure",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "HOOD",
+  "company": "Robinhood Markets Inc",
+  "sector": "Financials/Crypto Exchange",
+  "list": "wheel",
+  "portfolio": true,
+  "missed_earnings": true
+ },
+ {
+  "symbol": "WDC",
+  "company": "Western Digital Corp",
+  "sector": "Computer Technology",
+  "list": "wheel",
+  "portfolio": true
+ },
+ {
+  "symbol": "CCJ",
+  "company": "Cameco Corp",
+  "sector": "Mining",
+  "list": "wheel",
+  "portfolio": true
+ },
+ {
+  "symbol": "KTOS",
+  "company": "Kratos Defense & Security Solutions Inc",
+  "sector": "Aerospace & Defense",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "FTNT",
+  "company": "Fortinet Inc",
+  "sector": "Cybersecurity",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "INOD",
+  "company": "Innodata Inc",
+  "sector": "Technology",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "CSCO",
+  "company": "Cisco Systems Inc",
+  "sector": "Networking",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "IBIT",
+  "company": "iShares Bitcoin Trust ETF",
+  "sector": "Crypto Currency",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "META",
+  "company": "Meta Platforms Inc",
+  "sector": "Advertising/Social Media/Ai",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "APP",
+  "company": "Applovin Corp",
+  "sector": "Tech",
+  "list": "wheel",
+  "portfolio": false,
+  "missed_earnings": true
+ },
+ {
+  "symbol": "MSFT",
+  "company": "Microsoft Corp",
+  "sector": "Technology",
+  "list": "wheel",
+  "portfolio": false,
+  "missed_earnings": true
+ },
+ {
+  "symbol": "TSLA",
+  "company": "Tesla Inc",
+  "sector": "EV / Energy",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "AXP",
+  "company": "American Express Co",
+  "sector": "Financials/Credit Services",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "AVGO",
+  "company": "Broadcom Inc",
+  "sector": "Semiconductors",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "GE",
+  "company": "General Electric Co",
+  "sector": "Industrials",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "JPM",
+  "company": "JPMorgan Chase & Co",
+  "sector": "Banking",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "CLS",
+  "company": "Celestica Inc",
+  "sector": "Electronics Mfg",
+  "list": "wheel",
+  "portfolio": true
+ },
+ {
+  "symbol": "TSM",
+  "company": "Taiwan Semicndctr Mnufctrng Co Ltd",
+  "sector": "Semiconductors",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "AAPL",
+  "company": "Apple Inc",
+  "sector": "Technology",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "GOOGL",
+  "company": "Alphabet Inc Class A",
+  "sector": "Search / Cloud",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "STX",
+  "company": "Seagate Technology Holdings PLC",
+  "sector": "Computer Technology",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "AMZN",
+  "company": "Amazon.com Inc",
+  "sector": "Consumer Cloud",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "MU",
+  "company": "Micron Technology Inc",
+  "sector": "Semiconductors",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "NVDA",
+  "company": "NVIDIA Corp",
+  "sector": "AI / Semiconductors",
+  "list": "wheel",
+  "portfolio": true
+ },
+ {
+  "symbol": "ETHA",
+  "company": "iShares Ethereum Trust ETF",
+  "sector": "Crypto Currency",
+  "list": "wheel",
+  "portfolio": false,
+  "flagged": true
+ },
+ {
+  "symbol": "SOFI",
+  "company": "SoFi Technologies Inc",
+  "sector": "Financials",
+  "list": "wheel",
+  "portfolio": true
+ },
+ {
+  "symbol": "CDE",
+  "company": "Coeur Mining, Inc",
+  "sector": "Gold & Silver Miner",
+  "list": "wheel",
+  "portfolio": true,
+  "missed_earnings": true
+ },
+ {
+  "symbol": "IREN",
+  "company": "IREN Ltd",
+  "sector": "Bitcoin Mining/AI Cloud",
+  "list": "wheel",
+  "portfolio": true,
+  "missed_earnings": true
+ },
+ {
+  "symbol": "ADI",
+  "company": "Analog Devices Inc",
+  "sector": "Semiconductors",
+  "list": "wheel",
+  "portfolio": true
+ },
+ {
+  "symbol": "CCL",
+  "company": "Carnival Corporation Ltd",
+  "sector": "Cruise Lines",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "HL",
+  "company": "Hecla Mining Co",
+  "sector": "Precious Metals - Silver",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "AMAT",
+  "company": "Applied Materials Inc",
+  "sector": "Industrial Machinery",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "LRCX",
+  "company": "Lam Research Corp",
+  "sector": "Semiconductors",
+  "list": "wheel",
+  "portfolio": true
+ },
+ {
+  "symbol": "APH",
+  "company": "Amphenol Corp",
+  "sector": "Electronic Components - Semi",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "EQT",
+  "company": "EQT Corp",
+  "sector": "Natural Gas",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "NEM",
+  "company": "Newmont Corporation",
+  "sector": "Precious Metals",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "CAT",
+  "company": "Caterpillar Inc",
+  "sector": "Industrial Machinery",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "FCX",
+  "company": "Freeport-McMoRan Inc",
+  "sector": "Precious Metals - copper, gold",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "RTX",
+  "company": "Rtx Corp",
+  "sector": "Aerospace & Defense",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "GLW",
+  "company": "Corning Inc",
+  "sector": "Materials - Glass & Fiberoptics",
+  "list": "wheel",
+  "portfolio": true
+ },
+ {
+  "symbol": "COHR",
+  "company": "Coherent Corp",
+  "sector": "Photonics - Semiconductor",
+  "list": "wheel",
+  "portfolio": true
+ },
+ {
+  "symbol": "DRAM",
+  "company": "Roundhill Memory ETF",
+  "sector": "AI - Memory",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "INTC",
+  "company": "Intel Corp",
+  "sector": "Semiconductors",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "SMH",
+  "company": "VanEck Semiconductor ETF",
+  "sector": "Semiconductors",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "CEG",
+  "company": "Constellation Energy Corp",
+  "sector": "Energy",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "NBIS",
+  "company": "Nebius Group NV",
+  "sector": "Energy",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "TER",
+  "company": "Teradyne Inc",
+  "sector": "Semiconductors",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "HPE",
+  "company": "Hewlett Packard Enterprise Co",
+  "sector": "Semiconductors",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "SKHY",
+  "company": "SK Hynix Inc - ADR",
+  "sector": "Semiconductors",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "SNDK",
+  "company": "SanDisk Corp",
+  "sector": "Semiconductors",
+  "list": "wheel",
+  "portfolio": false
+ },
+ {
+  "symbol": "BRK.B",
+  "company": "Berkshire Hathaway Inc Class B",
+  "sector": "Conglomerate",
+  "list": "safe",
+  "portfolio": false
+ },
+ {
+  "symbol": "LMT",
+  "company": "Lockheed Martin Corp",
+  "sector": "Industrials / Defense",
+  "list": "safe",
+  "portfolio": false
+ },
+ {
+  "symbol": "MCD",
+  "company": "McDonald's Corp",
+  "sector": "Consumer Discretionary / Restaurants",
+  "list": "safe",
+  "portfolio": false
+ },
+ {
+  "symbol": "PGR",
+  "company": "Progressive Corp",
+  "sector": "Financials / Insurance",
+  "list": "safe",
+  "portfolio": false
+ },
+ {
+  "symbol": "ALL",
+  "company": "Allstate Corp",
+  "sector": "Financials / Insurance",
+  "list": "safe",
+  "portfolio": false
+ },
+ {
+  "symbol": "PG",
+  "company": "Procter & Gamble Co",
+  "sector": "Consumer Staples / Household Products",
+  "list": "safe",
+  "portfolio": false
+ },
+ {
+  "symbol": "XOM",
+  "company": "Exxonmobil Holdings Corp",
+  "sector": "Energy / Oil & Gas",
+  "list": "safe",
+  "portfolio": false
+ },
+ {
+  "symbol": "T",
+  "company": "AT&T Inc",
+  "sector": "Communication Services / Telecom",
+  "list": "safe",
+  "portfolio": false
+ }
+]
