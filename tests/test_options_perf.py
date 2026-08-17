@@ -5,8 +5,9 @@ from analytics.options_perf import build_performance
 
 
 def _txn(date, net, pid, under, kind, contracts, effect, typ="TRADE", strike=None):
+    # symbol is the option CONTRACT (positions group by it); one contract per pid here
     return {"date": date, "type": typ, "position_id": pid, "underlying": under,
-            "kind": kind, "symbol": under, "contracts": contracts, "strike": strike,
+            "kind": kind, "symbol": f"{under}:{pid}", "contracts": contracts, "strike": strike,
             "effect": effect, "net": net}
 
 

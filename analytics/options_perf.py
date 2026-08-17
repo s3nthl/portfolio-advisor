@@ -66,52 +66,69 @@ def _capital(strategy: str, strike, open_contracts: float, open_debit: float) ->
     return round(abs(open_debit), 2)
 
 
+def _new_cycle() -> dict:
+    return {"net": 0.0, "contracts": 0.0, "dates": [], "kinds": set(), "opens": [],
+            "underlying": None, "trades": 0, "open_strike": None,
+            "open_contracts": 0.0, "open_debit": 0.0}
+
+
+def _emit(c: dict, closed: bool, out: list) -> None:
+    if not c["dates"]:
+        return
+    strat = _strategy(c["kinds"], c["opens"])
+    out.append({
+        "underlying": c["underlying"] or "?",
+        "net": round(c["net"], 2),
+        "closed": closed,
+        "close_date": max(c["dates"]),
+        "open_date": min(c["dates"]),
+        "strategy": strat,
+        "trades": c["trades"],
+        "cap": _capital(strat, c["open_strike"], c["open_contracts"], c["open_debit"]),
+        "days": max((max(c["dates"]) - min(c["dates"])).days, 1),
+        "_strike": c["open_strike"], "_qty": c["open_contracts"],
+    })
+
+
 def _positions(txns: list[dict]) -> list[dict]:
-    """Collapse trade legs into positions (incl. assignment/expiry legs so the
-    contract count — hence closed-detection and close date — is correct)."""
-    groups: dict = defaultdict(lambda: {"net": 0.0, "contracts": 0.0, "dates": [],
-                                        "kinds": set(), "opens": [], "underlying": None,
-                                        "trades": 0, "open_strike": None,
-                                        "open_contracts": 0.0, "open_debit": 0.0})
-    solo = 0
+    """Collapse trade legs into positions by walking each option CONTRACT (OSI
+    symbol) through open→close CYCLES: accumulate legs until the contract count
+    returns to 0, then bank a closed position and start a fresh cycle.
+
+    Keyed on the contract symbol, NOT Schwab's position_id — recent trades often
+    have no position_id yet (assigned after settlement), which would otherwise
+    strand a close and drop its realized P&L. Assignment/expiry legs are included
+    so the count zeroes out correctly, and each symbol is a single option type."""
+    by_sym: dict = defaultdict(list)
     for t in txns:
-        pid = t.get("position_id")
-        if pid is None:                              # ~1% of legs; give each its own bucket
-            pid = f"solo-{solo}"; solo += 1
-        g = groups[pid]
-        g["net"] += t.get("net") or 0.0
-        g["contracts"] += t.get("contracts") or 0.0
-        d = _parse(t.get("date", ""))
-        if d:
-            g["dates"].append(d)
-        if t.get("kind"):
-            g["kinds"].add(t["kind"])
-        if t.get("effect") == "OPENING":
-            g["opens"].append(t.get("contracts") or 0.0)
-            g["open_contracts"] += abs(t.get("contracts") or 0.0)
-            g["open_debit"] += t.get("net") or 0.0
-            if g["open_strike"] is None and t.get("strike") is not None:
-                g["open_strike"] = t.get("strike")
-        if t.get("type") == "TRADE":
-            g["trades"] += 1
-        g["underlying"] = g["underlying"] or t.get("underlying")
-    out = []
-    for g in groups.values():
-        if not g["dates"]:
-            continue
-        strat = _strategy(g["kinds"], g["opens"])
-        out.append({
-            "underlying": g["underlying"] or "?",
-            "net": round(g["net"], 2),
-            "closed": abs(g["contracts"]) < 1e-6,
-            "close_date": max(g["dates"]),
-            "open_date": min(g["dates"]),
-            "strategy": strat,
-            "trades": g["trades"],
-            "cap": _capital(strat, g["open_strike"], g["open_contracts"], g["open_debit"]),
-            "days": max((max(g["dates"]) - min(g["dates"])).days, 1),
-            "_strike": g["open_strike"], "_qty": g["open_contracts"],
-        })
+        by_sym[t.get("symbol") or "?"].append(t)
+    out: list = []
+    for trades in by_sym.values():
+        trades.sort(key=lambda t: (t.get("date", ""), 0 if t.get("effect") == "OPENING" else 1))
+        cyc = None
+        for t in trades:
+            if cyc is None:
+                cyc = _new_cycle()
+            cyc["net"] += t.get("net") or 0.0
+            cyc["contracts"] += t.get("contracts") or 0.0
+            d = _parse(t.get("date", ""))
+            if d:
+                cyc["dates"].append(d)
+            if t.get("kind"):
+                cyc["kinds"].add(t["kind"])
+            if t.get("effect") == "OPENING":
+                cyc["opens"].append(t.get("contracts") or 0.0)
+                cyc["open_contracts"] += abs(t.get("contracts") or 0.0)
+                cyc["open_debit"] += t.get("net") or 0.0
+                if cyc["open_strike"] is None and t.get("strike") is not None:
+                    cyc["open_strike"] = t.get("strike")
+            if t.get("type") == "TRADE":
+                cyc["trades"] += 1
+            cyc["underlying"] = cyc["underlying"] or t.get("underlying")
+            if abs(cyc["contracts"]) < 1e-6:         # cycle complete → closed position
+                _emit(cyc, True, out); cyc = None
+        if cyc is not None:                          # leftover legs → still open
+            _emit(cyc, False, out)
     return _pair_spreads(out)
 
 
