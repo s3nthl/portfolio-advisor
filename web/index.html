@@ -319,6 +319,12 @@
   /* P&L calendar heatmap */
   .calhdr{display:flex;align-items:center;justify-content:center;gap:16px;margin:6px 0 2px}
   .caltitle{font-family:var(--display);font-size:18px;font-weight:700;letter-spacing:-.01em}
+  .calmode{display:flex;width:fit-content;margin:2px auto 14px}
+  .calmgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:9px;margin-top:6px}
+  .calmonth{min-height:68px;border-radius:11px;padding:11px 13px;display:flex;flex-direction:column;justify-content:space-between;background:var(--panel3);cursor:pointer;transition:transform .13s var(--ease),filter .13s}
+  .calmonth:hover{transform:translateY(-2px);filter:brightness(1.13)}
+  .calmlbl{font-size:11px;font-family:var(--mono);color:var(--txt);opacity:.72}
+  .calmamt{font-size:15.5px;font-weight:800;font-family:var(--mono);color:#f4f7fb;letter-spacing:-.02em}
   .calgrid{display:flex;flex-direction:column;gap:6px;margin-top:8px}
   .calrow{display:grid;grid-template-columns:repeat(7,1fr) .8fr;gap:6px}
   .caldow{font-size:9.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);text-align:right;padding:0 7px 2px}
@@ -1206,7 +1212,7 @@ document.querySelectorAll('#wl-view button').forEach(b=>b.onclick=()=>wlViewSet(
   const day=document.getElementById('wl-day'); if(day) day.oninput=()=>wlSetDay(day.value); })();
 
 // ---- Options performance: realized P&L from trade history ----
-let _optData=null, _optGran='monthly', _optLoaded=false, _optView='trend', _optCalMonth=null, _optWheel=false, _optDetail=[], _optScope=null;
+let _optData=null, _optGran='monthly', _optLoaded=false, _optView='trend', _optCalMonth=null, _optWheel=false, _optDetail=[], _optScope=null, _optCalMode='days';
 const _MON3=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const optIsWheel=p=>p.s==='CSP'||p.s==='Covered call';
 // aggregate the (optionally wheel-filtered) closed positions client-side, so the
@@ -1254,7 +1260,26 @@ function optCalNav(delta){
   const ms=_optMonths(); if(k>=ms[0]&&k<=ms[ms.length-1]) _optCalMonth=k;
   renderOptions();
 }
+function optCalMode(m){ _optCalMode=m; renderOptions(); }
+function optOpenMonth(k){ _optCalMode='days'; _optCalMonth=k; renderOptions(); optPickMonth(k); }
+function optMonthsGrid(){
+  const detail=_optDetail||[];
+  const byM={}; detail.forEach(p=>{ const k=p.d.slice(0,7); byM[k]=(byM[k]||0)+p.net; });
+  const months=Object.keys(byM).sort();
+  if(!months.length) return '<div class="ccmsg">No closed positions yet.</div>';
+  const maxAbs=Math.max(1,...Object.values(byM).map(v=>Math.abs(v)));
+  const cells=months.map(k=>{
+    const v=byM[k], [y,m]=k.split('-'), a=0.14+0.5*(Math.abs(v)/maxAbs);
+    const bg=v>=0?`rgba(64,196,106,${a.toFixed(2)})`:`rgba(242,105,95,${a.toFixed(2)})`;
+    return `<div class="calmonth" style="background:${bg}" onclick="optOpenMonth('${k}')" title="open ${_MON3[+m-1]} ${y} — click into its days">
+      <span class="calmlbl">${_MON3[+m-1]} '${y.slice(2)}</span><span class="calmamt ${v>=0?'pos':'neg'}">${optAmt(v)}</span></div>`;
+  }).join('');
+  return `<div class="calmgrid">${cells}</div>
+    <div class="caldetail"><span class="muted">Each cell = a month's realized P&L · click one to drill into its days.</span></div>`;
+}
 function optCalendar(){
+  const modeTgl=`<div class="viewtoggle calmode"><button class="${_optCalMode==='days'?'active':''}" onclick="optCalMode('days')">Month</button><button class="${_optCalMode==='months'?'active':''}" onclick="optCalMode('months')">Year</button></div>`;
+  if(_optCalMode==='months') return modeTgl+optMonthsGrid();
   const detail=_optDetail||[];
   const ms=_optMonths(); if(!ms.length) return '<div class="ccmsg">No closed positions yet.</div>';
   if(!_optCalMonth || !ms.includes(_optCalMonth)) _optCalMonth=ms[ms.length-1];
@@ -1289,7 +1314,7 @@ function optCalendar(){
   }
   const dow=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>`<div class="caldow">${d}</div>`).join('')+'<div class="caldow">Week</div>';
   const netCls=monthNet>=0?'pos':'neg';
-  return `<div class="calhdr">
+  return modeTgl+`<div class="calhdr">
       <button class="fwarrow" onclick="optCalNav(-1)" ${first?'':'disabled'}>‹</button>
       <div class="caltitle" onclick="optPickMonth('${_optCalMonth}')" title="focus the dash on this whole month">${_MON3[m-1]} ${y} <span class="${netCls}">· ${_priv?_MASK:usd(monthNet)}</span></div>
       <button class="fwarrow" onclick="optCalNav(1)" ${last?'':'disabled'}>›</button>
