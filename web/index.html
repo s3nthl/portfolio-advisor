@@ -214,6 +214,7 @@
   .fwatchchip:hover .fwatchsym,.fwatchchip.active .fwatchsym{color:var(--txt)}
   .fwatchx{background:transparent;border:0;color:var(--dim);font-size:14px;line-height:1;padding:4px 9px 4px 5px;cursor:pointer}
   .fwatchx:hover{color:var(--neg)}
+  .fwatchhint{font-size:11.5px;color:var(--dim);font-style:italic}
   .fwatchclear{background:transparent;border:0;color:var(--dim);font-size:11px;cursor:pointer;text-decoration:underline;margin-left:4px}
   .fwatchclear:hover{color:var(--txt)}
   /* options performance tab */
@@ -3055,7 +3056,10 @@ function renderFundWatch(){
   const w=document.getElementById('fund-watch'); if(!w) return;
   // drop any that later became holdings (keeps it to non-owned research names)
   const held=new Set(allHoldingSymbols()); _fundWatch=_fundWatch.filter(s=>!held.has(s));
-  if(!_fundWatch.length){ w.innerHTML=''; return; }
+  if(!_fundWatch.length){   // stay visible so the feature is discoverable
+    w.innerHTML=`<span class="fwatchlbl">★ Researched</span><span class="fwatchhint">look up any ticker you don't own and it's saved here for next time</span>`;
+    return;
+  }
   const chips=_fundWatch.map(s=>`<span class="fwatchchip${s===_fundSym?' active':''}">`
     +`<button class="fwatchsym" onclick="pickFund('${s}')">${s}</button>`
     +`<button class="fwatchx" onclick="fundWatchRemove('${s}')" title="remove from watchlist">×</button></span>`).join('');
