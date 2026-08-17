@@ -205,49 +205,49 @@
     background:var(--panel3);color:var(--muted);font-size:17px;line-height:1;cursor:pointer;
     display:grid;place-items:center;transition:color .15s,border-color .15s}
   .fwarrow:hover{color:var(--txt);border-color:var(--accent)}
-  /* ===== Watchlist tab ===== */
-  #wl-add{background:var(--panel3);color:var(--txt);border:1px solid var(--hairline2);border-radius:var(--r-sm);padding:8px 13px;font-family:var(--mono);font-size:13px;width:150px;text-transform:uppercase;transition:border-color .16s,box-shadow .16s}
-  #wl-add:focus{outline:none;border-color:var(--accent);box-shadow:var(--glow)} #wl-add::placeholder{color:var(--muted);text-transform:none}
-  .wlrule{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--txt);background:var(--panel);border:1px solid var(--hairline);border-radius:var(--r-sm);padding:6px 12px}
-  .wlrule input{width:48px;background:var(--panel3);color:var(--txt);border:1px solid var(--hairline2);border-radius:6px;padding:3px 6px;font-family:var(--mono);font-weight:700;text-align:center}
-  .wlalert{display:flex;align-items:center;gap:10px;font-size:14px;font-family:var(--display);padding:12px 18px;border-radius:12px;margin:2px 0 14px;
-    background:linear-gradient(90deg,rgba(242,105,95,.16),rgba(242,105,95,.05));border:1px solid rgba(242,105,95,.35)}
-  .wlalert.ok{background:linear-gradient(90deg,rgba(64,196,106,.13),transparent);border-color:rgba(64,196,106,.3)}
-  .wlalicon{font-size:18px}
-  .wlgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:13px}
-  .wlcard{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent 40%),var(--panel);border:1px solid var(--hairline);border-radius:13px;padding:13px 15px 11px;transition:transform .15s var(--ease),box-shadow .15s,border-color .15s}
+  /* ===== Watchlist — calm: quiet by default, colour only for meaning ===== */
+  #wl-add{background:var(--panel);color:var(--txt);border:1px solid var(--hairline);border-radius:9px;padding:9px 14px;font-family:var(--mono);font-size:13px;width:148px;text-transform:uppercase;transition:border-color .16s}
+  #wl-add:focus{outline:none;border-color:var(--accent)} #wl-add::placeholder{color:var(--muted);text-transform:none}
+  .wlrule{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);background:var(--panel);border:1px solid var(--hairline);border-radius:9px;padding:8px 14px}
+  .wlrule input{width:46px;background:var(--panel3);color:var(--txt);border:1px solid var(--hairline);border-radius:6px;padding:3px 6px;font-family:var(--mono);font-weight:700;text-align:center}
+  .wlor{color:var(--dim);font-size:11px;margin:0 3px}
+  .wlalert{display:flex;align-items:center;gap:11px;font-size:13.5px;padding:13px 18px;border-radius:11px;margin:2px 0 16px;background:var(--panel);border:1px solid var(--hairline);border-left:3px solid var(--neg)}
+  .wlalert.ok{border-left-color:var(--pos);color:var(--muted)}
+  .wlalicon{font-size:15px;opacity:.85}
+  .wlgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:15px}
+  .wlcard{position:relative;background:var(--panel);border:1px solid var(--hairline);border-radius:14px;padding:16px 17px 13px;transition:transform .15s var(--ease),box-shadow .15s,border-color .15s}
   .wlcard:hover{transform:translateY(-2px);box-shadow:var(--sh-2);border-color:var(--hairline2)}
-  .wlcard.alert{border-color:rgba(242,105,95,.5);box-shadow:0 0 18px -2px rgba(242,105,95,.28)}
-  .wlcard.dayalert{border-color:rgba(242,105,95,.75);box-shadow:0 0 22px -2px rgba(242,105,95,.45)}
-  .wlor{color:var(--dim);font-size:11px;margin:0 2px}
-  .wlreason{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:var(--neg);background:rgba(242,105,95,.14);border-radius:5px;padding:1.5px 7px;margin:-3px 0 8px;font-family:var(--mono)}
-  .wlreason.day{background:var(--neg);color:#fff}
+  .wlcard.alert{box-shadow:inset 3px 0 0 rgba(242,105,95,.5)}          /* one quiet signal: a red left bar */
+  .wlcard.dayalert{box-shadow:inset 3px 0 0 var(--neg)}
   .wltop{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
-  .wlsym{font-family:var(--mono);font-size:16px;font-weight:800;letter-spacing:.3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
-  .wlb{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;padding:1.5px 6px;border-radius:5px;font-family:var(--mono)}
-  .wlb.held{background:var(--accent-weak);color:var(--accent)} .wlb.safe{background:rgba(91,151,245,.13);color:#8fb4f7}
-  .wlb.cust{background:var(--panel3);color:var(--muted)} .wlb.miss{background:#332810;color:var(--hibeta)} .wlb.flag{background:#3a1a1a;color:var(--neg)}
-  .wlx{background:transparent;border:0;color:var(--dim);font-size:17px;line-height:1;cursor:pointer;padding:0 2px}
-  .wlx:hover{color:var(--neg)}
-  .wlname{font-size:11px;color:var(--muted);margin:1px 0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .wlprice{display:flex;align-items:baseline;gap:9px;margin-bottom:9px}
-  .wlpx{font-family:var(--display);font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
-  .wlchg{font-family:var(--mono);font-size:12.5px;font-weight:700}
-  .wlrange{margin-bottom:9px}
-  .wlbar{position:relative;height:5px;border-radius:3px;background:linear-gradient(90deg,var(--neg),var(--panel3) 45% 55%,var(--pos));opacity:.55}
-  .wlmark{position:absolute;top:50%;width:9px;height:9px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);box-shadow:0 0 0 2px var(--panel),0 1px 3px rgba(0,0,0,.6)}
-  .wlmark.a{background:var(--neg);box-shadow:0 0 0 2px var(--panel),0 0 8px var(--neg)}
-  .wlrangelbl{display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono);color:var(--muted);margin-top:4px}
-  .wlfoot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--hairline);padding-top:8px;margin-top:2px}
-  .wlalertset{font-size:10.5px;color:var(--muted);font-family:var(--mono)}
-  .wlalertset input{width:38px;background:var(--panel3);color:var(--txt);border:1px solid var(--hairline2);border-radius:5px;padding:2px 4px;font-family:var(--mono);text-align:center;font-size:11px}
-  .wlnewsbtn{background:transparent;border:0;color:var(--accent2);font-size:11px;cursor:pointer;font-family:var(--mono)}
-  .wlnewsbtn:hover{color:var(--txt)}
-  .wlnewsbox{display:none} .wlnewsbox.open{display:block;margin-top:9px;border-top:1px solid var(--hairline);padding-top:8px}
+  .wlsym{font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:.4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
+  .wlb{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;padding:1.5px 6px;border-radius:5px;font-family:var(--mono);background:rgba(255,255,255,.05);color:var(--dim);border:1px solid var(--hairline)}
+  .wlb.held{background:transparent;color:var(--accent);border-color:rgba(91,151,245,.42)}   /* the only accented badge */
+  .wlx{background:transparent;border:0;color:var(--dim);font-size:16px;line-height:1;cursor:pointer;padding:0 2px;opacity:.55;transition:opacity .15s,color .15s}
+  .wlcard:hover .wlx{opacity:1} .wlx:hover{color:var(--neg)}
+  .wlname{font-size:11px;color:var(--muted);margin:2px 0 11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wlreason{display:inline-block;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--neg);margin:-6px 0 10px;font-family:var(--mono)}
+  .wlreason::before{content:"\25CF";font-size:7px;vertical-align:2px;margin-right:5px}
+  .wlprice{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}
+  .wlpx{font-family:var(--display);font-size:23px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .wlchg{font-family:var(--mono);font-size:12px;font-weight:600}
+  .wlchg.pos{color:var(--pos)} .wlchg.neg{color:var(--neg)}
+  .wlrange{margin-bottom:11px}
+  .wlbar{position:relative;height:3px;border-radius:2px;background:var(--hairline2)}
+  .wlmark{position:absolute;top:50%;width:8px;height:8px;border-radius:50%;background:var(--muted);transform:translate(-50%,-50%);box-shadow:0 0 0 2px var(--panel)}
+  .wlmark.a{background:var(--neg)}
+  .wlrangelbl{display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono);color:var(--dim);margin-top:6px}
+  .wlfoot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--hairline);padding-top:9px;margin-top:3px}
+  .wlalertset{font-size:10px;color:var(--dim);font-family:var(--mono)}
+  .wlalertset input{width:36px;background:transparent;color:var(--muted);border:1px solid var(--hairline);border-radius:5px;padding:2px 4px;font-family:var(--mono);text-align:center;font-size:11px}
+  .wlalertset input:focus{outline:none;border-color:var(--accent);color:var(--txt)}
+  .wlnewsbtn{background:transparent;border:0;color:var(--muted);font-size:11px;cursor:pointer;font-family:var(--mono);transition:color .15s}
+  .wlnewsbtn:hover{color:var(--accent)}
+  .wlnewsbox{display:none} .wlnewsbox.open{display:block;margin-top:10px;border-top:1px solid var(--hairline);padding-top:9px}
   .wlnewsload{font-size:11px;color:var(--muted);padding:4px 0;font-style:italic}
-  .wlnewsitem{display:block;padding:5px 0;border-bottom:1px solid var(--hairline);text-decoration:none}
+  .wlnewsitem{display:block;padding:6px 0;border-bottom:1px solid var(--hairline);text-decoration:none}
   .wlnewsitem:last-child{border-bottom:0}
-  .wlnewshd{display:block;font-size:11.5px;color:var(--txt);line-height:1.35}
+  .wlnewshd{display:block;font-size:11.5px;color:var(--txt);line-height:1.4}
   .wlnewsitem:hover .wlnewshd{color:var(--accent)}
   .wlnewssrc{font-size:9.5px;color:var(--dim);font-family:var(--mono)}
   @media(max-width:640px){ .wlgrid{grid-template-columns:1fr} }
@@ -1112,7 +1112,7 @@ function wlCard(i){
   const pos=i.range_pos==null?50:Math.max(0,Math.min(100,i.range_pos));
   const chg=i.chg_pct==null?'':`<span class="wlchg ${up?'pos':'neg'}">${up?'▲':'▼'} ${Math.abs(i.chg_pct).toFixed(2)}%</span>`;
   const offh=i.off_high==null?'<span class="muted">—</span>':`<span class="${i.high_alert?'neg':'muted'}">${i.off_high}% off high</span>`;
-  const reason=i.alert?`<span class="wlreason${i.day_alert?' day':''}">🔔 ${i.day_alert&&i.high_alert?'dropped today + off high':(i.day_alert?'dropped today':'off high')}</span>`:'';
+  const reason=i.alert?`<span class="wlreason${i.day_alert?' day':''}">${i.day_alert&&i.high_alert?'dropped today · off high':(i.day_alert?'dropped today':'off high')}</span>`:'';
   return `<div class="wlcard${i.alert?' alert':''}${i.day_alert?' dayalert':''}">
     <div class="wltop"><div class="wlsym"><b>${i.symbol}</b>${badges}</div>
       <button class="wlx" onclick="wlRemove('${i.symbol}')" title="remove from watchlist">×</button></div>
