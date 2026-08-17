@@ -19,7 +19,7 @@ import config
 _BASE = Path(__file__).resolve().parent.parent
 _SEED = _BASE / "watchlist_seed.json"
 _FILE = _BASE / "watchlist.json"
-_DEFAULT_RULE = {"dip_pct": 15.0}          # alert when >= 15% below the 52-wk high
+_DEFAULT_RULE = {"dip_pct": 15.0, "day_pct": 5.0}   # alert if >=15% below 52-wk high OR drops >=5% today
 _NEWS_CACHE: dict = {}
 _NEWS_TTL = 1800                            # 30 min
 
@@ -35,7 +35,7 @@ def _seed() -> dict:
 def load() -> dict:
     try:
         d = json.loads(_FILE.read_text())
-        d.setdefault("rule", dict(_DEFAULT_RULE))
+        d["rule"] = {**_DEFAULT_RULE, **(d.get("rule") or {})}   # backfill new rule keys
         d.setdefault("items", [])
         return d
     except Exception:
@@ -69,10 +69,12 @@ def remove(symbol: str) -> dict:
     return d
 
 
-def set_rule(dip_pct: float | None) -> dict:
+def set_rule(dip_pct: float | None = None, day_pct: float | None = None) -> dict:
     d = load()
     if dip_pct is not None:
         d["rule"]["dip_pct"] = round(float(dip_pct), 1)
+    if day_pct is not None:
+        d["rule"]["day_pct"] = round(float(day_pct), 1)
     save(d)
     return d
 
@@ -98,22 +100,32 @@ def enriched() -> dict:
     syms = [i["symbol"] for i in d["items"]]
     quotes = rich_quotes(syms) if (config.CHAI_SOURCE == "schwab" and syms) else {}
     g_dip = d["rule"].get("dip_pct", 15.0)
+    g_day = d["rule"].get("day_pct", 5.0)
     out = []
     for i in d["items"]:
         q = quotes.get(i["symbol"]) or {}
-        price, high52 = q.get("price"), q.get("high52")
+        price, high52, chg = q.get("price"), q.get("high52"), q.get("chg_pct")
         off_high = round((high52 - price) / high52 * 100, 1) if (price and high52) else None
         thresh = i.get("alert_pct", g_dip)
-        alert = off_high is not None and off_high >= thresh
+        high_alert = off_high is not None and off_high >= thresh
+        day_alert = chg is not None and chg <= -g_day       # a drop of >= g_day % today
+        reasons = []
+        if day_alert:
+            reasons.append(f"{round(chg, 1)}% today")
+        if high_alert:
+            reasons.append(f"{off_high}% off high")
         rng = None
         if price and high52 and q.get("low52") and high52 > q["low52"]:
             rng = round((price - q["low52"]) / (high52 - q["low52"]) * 100, 0)  # % up the 52wk range
-        out.append({**i, "price": price, "chg_pct": q.get("chg_pct"),
+        out.append({**i, "price": price, "chg_pct": chg,
                     "chg": q.get("chg"), "high52": high52, "low52": q.get("low52"),
-                    "off_high": off_high, "range_pos": rng,
-                    "alert_pct": thresh, "alert": alert})
+                    "off_high": off_high, "range_pos": rng, "alert_pct": thresh,
+                    "alert": high_alert or day_alert, "high_alert": high_alert,
+                    "day_alert": day_alert, "alert_reason": " · ".join(reasons)})
     return {"status": "ok", "rule": d["rule"], "items": out,
-            "alerting": sum(1 for x in out if x["alert"])}
+            "alerting": sum(1 for x in out if x["alert"]),
+            "day_alerting": sum(1 for x in out if x["day_alert"]),
+            "high_alerting": sum(1 for x in out if x["high_alert"])}
 
 
 def news(symbol: str, force: bool = False) -> dict:

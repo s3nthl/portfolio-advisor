@@ -216,6 +216,10 @@
   .wlcard{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent 40%),var(--panel);border:1px solid var(--hairline);border-radius:13px;padding:13px 15px 11px;transition:transform .15s var(--ease),box-shadow .15s,border-color .15s}
   .wlcard:hover{transform:translateY(-2px);box-shadow:var(--sh-2);border-color:var(--hairline2)}
   .wlcard.alert{border-color:rgba(242,105,95,.5);box-shadow:0 0 18px -2px rgba(242,105,95,.28)}
+  .wlcard.dayalert{border-color:rgba(242,105,95,.75);box-shadow:0 0 22px -2px rgba(242,105,95,.45)}
+  .wlor{color:var(--dim);font-size:11px;margin:0 2px}
+  .wlreason{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:var(--neg);background:rgba(242,105,95,.14);border-radius:5px;padding:1.5px 7px;margin:-3px 0 8px;font-family:var(--mono)}
+  .wlreason.day{background:var(--neg);color:#fff}
   .wltop{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
   .wlsym{font-family:var(--mono);font-size:16px;font-weight:800;letter-spacing:.3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
   .wlb{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;padding:1.5px 6px;border-radius:5px;font-family:var(--mono)}
@@ -856,7 +860,7 @@
     <div id="wl-alertbar"></div>
     <div class="sec" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:0">
       <input id="wl-add" placeholder="＋ add ticker" spellcheck="false" autocomplete="off" maxlength="6">
-      <div class="wlrule">Alert when <input id="wl-dip" type="number" min="1" max="90" step="1" value="15"><span class="muted">% below 52-wk high</span></div>
+      <div class="wlrule">Alert: <input id="wl-dip" type="number" min="1" max="90" step="1" value="15"><span class="muted">% off 52-wk high</span> <span class="wlor">or</span> <input id="wl-day" type="number" min="1" max="50" step="0.5" value="5"><span class="muted">% drop today</span></div>
       <div class="viewtoggle" id="wl-filter">
         <button data-f="all" class="active">All</button>
         <button data-f="alert">🔔 Dipping</button>
@@ -1070,10 +1074,11 @@ async function wlAdd(){ const el=document.getElementById('wl-add'); const s=(el.
   if(d.status==='ok'){ _wlData=d; renderWatchlist(); } }
 async function wlRemove(s){ const d=await (await fetch('/api/watchlist/remove?symbol='+encodeURIComponent(s),{method:'POST'})).json();
   if(d.status==='ok'){ _wlData=d; renderWatchlist(); } }
-let _wlDipT=null;
-function wlSetDip(v){ clearTimeout(_wlDipT); _wlDipT=setTimeout(async()=>{
-  const d=await (await fetch('/api/watchlist/rule?dip_pct='+encodeURIComponent(v),{method:'POST'})).json();
+let _wlRuleT=null;
+function wlSetRule(param,v){ clearTimeout(_wlRuleT); _wlRuleT=setTimeout(async()=>{
+  const d=await (await fetch(`/api/watchlist/rule?${param}=`+encodeURIComponent(v),{method:'POST'})).json();
   if(d.status==='ok'){ _wlData=d; renderWatchlist(); } },500); }
+const wlSetDip=v=>wlSetRule('dip_pct',v), wlSetDay=v=>wlSetRule('day_pct',v);
 async function wlSetAlert(s,v){ const pct=(v===''||v==null)?'':'&pct='+encodeURIComponent(v);
   const d=await (await fetch(`/api/watchlist/ticker-alert?symbol=${encodeURIComponent(s)}${pct}`,{method:'POST'})).json();
   if(d.status==='ok'){ _wlData=d; renderWatchlist(); } }
@@ -1096,11 +1101,12 @@ function wlCard(i){
     i.flagged?'<span class="wlb flag" title="flagged in your sheet">flagged</span>':''].join('');
   const pos=i.range_pos==null?50:Math.max(0,Math.min(100,i.range_pos));
   const chg=i.chg_pct==null?'':`<span class="wlchg ${up?'pos':'neg'}">${up?'▲':'▼'} ${Math.abs(i.chg_pct).toFixed(2)}%</span>`;
-  const offh=i.off_high==null?'<span class="muted">—</span>':`<span class="${i.alert?'neg':'muted'}">${i.off_high}% off high</span>`;
-  return `<div class="wlcard${i.alert?' alert':''}">
+  const offh=i.off_high==null?'<span class="muted">—</span>':`<span class="${i.high_alert?'neg':'muted'}">${i.off_high}% off high</span>`;
+  const reason=i.alert?`<span class="wlreason${i.day_alert?' day':''}">🔔 ${i.day_alert&&i.high_alert?'dropped today + off high':(i.day_alert?'dropped today':'off high')}</span>`:'';
+  return `<div class="wlcard${i.alert?' alert':''}${i.day_alert?' dayalert':''}">
     <div class="wltop"><div class="wlsym"><b>${i.symbol}</b>${badges}</div>
       <button class="wlx" onclick="wlRemove('${i.symbol}')" title="remove from watchlist">×</button></div>
-    <div class="wlname">${i.company||''}</div>
+    <div class="wlname">${i.company||''}</div>${reason}
     <div class="wlprice"><span class="wlpx">${_wlPx(i.price)}</span>${chg}</div>
     <div class="wlrange" title="52-week range">
       <div class="wlbar"><span class="wlmark ${i.alert?'a':''}" style="left:${pos}%"></span></div>
@@ -1116,24 +1122,27 @@ function wlCard(i){
 function renderWatchlist(){
   if(!_wlData) return;
   document.getElementById('wl-dip').value=_wlData.rule.dip_pct;
+  document.getElementById('wl-day').value=_wlData.rule.day_pct;
   let items=_wlData.items.slice();
   if(_wlFilter==='alert') items=items.filter(i=>i.alert);
   else if(_wlFilter==='portfolio') items=items.filter(i=>i.portfolio);
   else if(_wlFilter==='wheel') items=items.filter(i=>i.list==='wheel');
   else if(_wlFilter==='safe') items=items.filter(i=>i.list==='safe');
-  // dips + biggest-drawdown float to the top
-  items.sort((a,b)=>(b.alert?1:0)-(a.alert?1:0) || (b.off_high||0)-(a.off_high||0));
-  const n=_wlData.alerting||0;
+  // day-drops first, then biggest drawdown
+  items.sort((a,b)=>(b.day_alert?1:0)-(a.day_alert?1:0) || (b.alert?1:0)-(a.alert?1:0) || (b.off_high||0)-(a.off_high||0));
+  const n=_wlData.alerting||0, dn=_wlData.day_alerting||0, hn=_wlData.high_alerting||0;
+  const parts=[]; if(dn) parts.push(`<b>${dn}</b> dropped ≥ ${_wlData.rule.day_pct}% today`); if(hn) parts.push(`<b>${hn}</b> are ≥ ${_wlData.rule.dip_pct}% off their high`);
   document.getElementById('wl-alertbar').innerHTML = n
-    ? `<div class="wlalert"><span class="wlalicon">🔔</span> <b>${n}</b> of ${_wlData.items.length} are ≥ ${_wlData.rule.dip_pct}% below their 52-week high <span class="muted">— potential dip entries. Click 🔔 Dipping to see just those.</span></div>`
-    : `<div class="wlalert ok"><span class="wlalicon">✓</span> nothing past your ${_wlData.rule.dip_pct}% dip threshold right now.</div>`;
+    ? `<div class="wlalert"><span class="wlalicon">🔔</span> ${parts.join(' · ')} <span class="muted">— click 🔔 Dipping to see just these.</span></div>`
+    : `<div class="wlalert ok"><span class="wlalicon">✓</span> nothing past your alert thresholds right now.</div>`;
   document.getElementById('wl-body').innerHTML = items.length
     ? `<div class="wlgrid">${items.map(wlCard).join('')}</div>`
     : '<div class="ccmsg">No tickers match this filter.</div>';
 }
 document.querySelectorAll('#wl-filter button').forEach(b=>b.onclick=()=>wlFilterSet(b.dataset.f));
 (function(){ const a=document.getElementById('wl-add'); if(a) a.onkeydown=e=>{ if(e.key==='Enter') wlAdd(); };
-  const dip=document.getElementById('wl-dip'); if(dip) dip.oninput=()=>wlSetDip(dip.value); })();
+  const dip=document.getElementById('wl-dip'); if(dip) dip.oninput=()=>wlSetDip(dip.value);
+  const day=document.getElementById('wl-day'); if(day) day.oninput=()=>wlSetDay(day.value); })();
 
 // ---- Options performance: realized P&L from trade history ----
 let _optData=null, _optGran='monthly', _optLoaded=false, _optView='trend', _optCalMonth=null, _optWheel=false, _optDetail=[], _optScope=null;

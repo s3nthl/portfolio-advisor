@@ -289,9 +289,9 @@ def api_watchlist_remove(symbol: str) -> JSONResponse:
 
 
 @app.post("/api/watchlist/rule")
-def api_watchlist_rule(dip_pct: float) -> JSONResponse:
+def api_watchlist_rule(dip_pct: float | None = None, day_pct: float | None = None) -> JSONResponse:
     from ingest import watchlist as wl
-    wl.set_rule(dip_pct); _watch_invalidate()
+    wl.set_rule(dip_pct, day_pct); _watch_invalidate()
     return api_watchlist(force=True)
 
 
