@@ -218,10 +218,10 @@
   /* float on a soft shadow — no outline (removes the boxy grid look) */
   .wlcard{position:relative;background:var(--panel2);border:0;border-radius:14px;padding:16px 17px 13px;box-shadow:var(--sh-1);transition:transform .16s var(--ease),box-shadow .16s}
   .wlcard:hover{transform:translateY(-2px);box-shadow:var(--sh-2)}
-  .wlcard.alert{box-shadow:inset 3px 0 0 rgba(242,105,95,.5),var(--sh-1)}   /* one quiet signal: a red left bar */
-  .wlcard.dayalert{box-shadow:inset 3px 0 0 var(--neg),var(--sh-1)}
-  .wlcard.alert:hover{box-shadow:inset 3px 0 0 rgba(242,105,95,.5),var(--sh-2)}
-  .wlcard.dayalert:hover{box-shadow:inset 3px 0 0 var(--neg),var(--sh-2)}
+  .wlcard.wlon{box-shadow:inset 3px 0 0 rgba(242,105,95,.5),var(--sh-1)}   /* one quiet signal: a red left bar */
+  .wlcard.wlday{box-shadow:inset 3px 0 0 var(--neg),var(--sh-1)}
+  .wlcard.wlon:hover{box-shadow:inset 3px 0 0 rgba(242,105,95,.5),var(--sh-2)}
+  .wlcard.wlday:hover{box-shadow:inset 3px 0 0 var(--neg),var(--sh-2)}
   .wltop{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
   .wlsym{font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:.4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
   .wlb{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;padding:1.5px 6px;border-radius:5px;font-family:var(--mono);background:rgba(255,255,255,.05);color:var(--dim);border:1px solid var(--hairline)}
@@ -1116,7 +1116,7 @@ function wlCard(i){
   const chg=i.chg_pct==null?'':`<span class="wlchg ${up?'pos':'neg'}">${up?'▲':'▼'} ${Math.abs(i.chg_pct).toFixed(2)}%</span>`;
   const offh=i.off_high==null?'<span class="muted">—</span>':`<span class="${i.high_alert?'neg':'muted'}">${i.off_high}% off high</span>`;
   const reason=i.alert?`<span class="wlreason${i.day_alert?' day':''}">${i.day_alert&&i.high_alert?'dropped today · off high':(i.day_alert?'dropped today':'off high')}</span>`:'';
-  return `<div class="wlcard${i.alert?' alert':''}${i.day_alert?' dayalert':''}">
+  return `<div class="wlcard${i.alert?' wlon':''}${i.day_alert?' wlday':''}">
     <div class="wltop"><div class="wlsym"><b>${i.symbol}</b>${badges}</div>
       <button class="wlx" onclick="wlRemove('${i.symbol}')" title="remove from watchlist">×</button></div>
     <div class="wlname">${i.company||''}</div>${reason}
