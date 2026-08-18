@@ -307,6 +307,8 @@
   .ostrat .ov{font-size:19px}
   .ostratsub{font-size:10.5px;color:var(--muted);margin-top:3px;font-family:var(--mono)}
   /* period-scope pill above the dash cards */
+  .optcaveat{background:rgba(224,168,74,.10);border:1px solid rgba(224,168,74,.30);border-radius:12px;padding:11px 15px;margin:2px 0 8px;font-size:12.5px;line-height:1.5;color:var(--txt)}
+  .optcaveat .muted{font-size:11px}
   .optscopebar{margin:2px 0 9px}
   .optscope{font-size:11.5px;font-family:var(--mono)}
   .optscope.on{color:var(--accent2)}
@@ -822,7 +824,7 @@
     <div class="railsec">Wheel</div>
     <button data-tab="cspselect"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/></svg><span>CSP Selector</span></button>
     <button data-tab="coveredcalls"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.6-3 7.6-7 8.7-4-1.1-7-4.1-7-8.7V6z"/></svg><span>Covered Calls</span></button>
-    <button data-tab="options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><rect x="5" y="11" width="3.2" height="8" rx="1"/><rect x="10.4" y="6" width="3.2" height="13" rx="1"/><rect x="15.8" y="13" width="3.2" height="6" rx="1"/></svg><span>Options P&L</span></button>
+    <button data-tab="options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><rect x="5" y="11" width="3.2" height="8" rx="1"/><rect x="10.4" y="6" width="3.2" height="13" rx="1"/><rect x="15.8" y="13" width="3.2" height="6" rx="1"/></svg><span>P&L</span></button>
 
     <div class="railsec">Research</div>
     <button data-tab="watchlist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.85-4.25 4.15 1 5.85L12 16.9l-5.25 2.75 1-5.85L3.5 9.65l5.9-.85z"/></svg><span>Watchlist</span></button>
@@ -937,6 +939,11 @@
 
   <section class="tab" id="tab-options">
     <div class="sec" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:0">
+      <div class="viewtoggle" id="opt-asset">
+        <button data-a="options" class="active">⚙️ Options</button>
+        <button data-a="stocks">📈 Stocks</button>
+        <button data-a="all">Σ All</button>
+      </div>
       <div class="viewtoggle" id="opt-scope">
         <button data-w="all" class="active">All options</button>
         <button data-w="wheel">🎯 Wheel only</button>
@@ -950,7 +957,7 @@
         <button data-g="weekly">Weekly</button>
         <button data-g="monthly" class="active">Monthly</button>
       </div>
-      <div class="note" style="margin:0">What you made in options on <b>closed positions</b> (lifetime) — <span class="muted">realized P&amp;L booked on each position's close date · ROC = annualized return on capital at risk · Wheel only = CSP + covered calls · Calendar: click any day to see which positions made that number.</span></div>
+      <div class="note" style="margin:0">What you made on <b>closed positions</b> (lifetime) — <span class="muted">realized P&amp;L booked on each position's close date · ROC = annualized return on capital at risk · Stocks are FIFO lot-matched (buy cost vs sell proceeds) · Options &amp; stocks are kept separate — never blended · Calendar: click any day to see the positions behind that number.</span></div>
     </div>
     <div id="opt-body"><div class="ccmsg">Loading options performance…</div></div>
   </section>
@@ -1217,7 +1224,7 @@ document.querySelectorAll('#wl-view button').forEach(b=>b.onclick=()=>wlViewSet(
   const day=document.getElementById('wl-day'); if(day) day.oninput=()=>wlSetDay(day.value); })();
 
 // ---- Options performance: realized P&L from trade history ----
-let _optData=null, _optGran='monthly', _optLoaded=false, _optView='trend', _optCalMonth=null, _optWheel=false, _optDetail=[], _optScope=null, _optCalMode='days';
+let _optData=null, _optGran='monthly', _optLoaded=false, _optView='trend', _optCalMonth=null, _optWheel=false, _optDetail=[], _optScope=null, _optCalMode='days', _optAsset='options';
 const _MON3=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const optIsWheel=p=>p.s==='CSP'||p.s==='Covered call';
 // aggregate the (optionally wheel-filtered) closed positions client-side, so the
@@ -1349,16 +1356,25 @@ function optDayDetail(ds){
   host.innerHTML=`<div class="cdhdr">${hdr} · <span class="${net>=0?'pos':'neg'}">${_priv?_MASK:usd(net)}</span> <span class="muted">· ${rows.length} closed position${rows.length!=1?'s':''}</span></div>${list}`;
   host.scrollIntoView({block:'nearest',behavior:'smooth'});
 }
+const _ASSETLBL={options:'options',stocks:'stock',all:'options + stock'};
 async function loadOptions(force){
   if(_optLoaded && !force && _optData){ renderOptions(); return; }
   const host=document.getElementById('opt-body');
-  host.innerHTML='<div class="ccmsg">⟳ Pulling your options trade history…</div>';
+  host.innerHTML=`<div class="ccmsg">⟳ Pulling your ${_ASSETLBL[_optAsset]} trade history…</div>`;
   try{
-    const d=await (await fetch('/api/options-performance'+(force?'?force=1':''))).json();
-    if(d.status==='offline'){ host.innerHTML='<div class="ccmsg">Options performance needs the live Schwab source.</div>'; return; }
-    if(d.status!=='ok'){ host.innerHTML=`<div class="err">Options: ${d.detail||d.error||'failed'}</div>`; if(authErr(d.detail||d.error)) showAuthBanner(); return; }
+    const q=`asset=${_optAsset}`+(force?'&force=1':'');
+    const d=await (await fetch('/api/pnl?'+q)).json();
+    if(d.status==='offline'){ host.innerHTML='<div class="ccmsg">Realized P&L needs the live Schwab source.</div>'; return; }
+    if(d.status!=='ok'){ host.innerHTML=`<div class="err">P&L: ${d.detail||d.error||'failed'}</div>`; if(authErr(d.detail||d.error)) showAuthBanner(); return; }
     _optData=d; _optLoaded=true; renderOptions();
-  }catch(e){ host.innerHTML=`<div class="err">Options performance failed: ${e.message}</div>`; }
+  }catch(e){ host.innerHTML=`<div class="err">P&L load failed: ${e.message}</div>`; }
+}
+function setOptAsset(a){ _optAsset=a;
+  document.querySelectorAll('#opt-asset button').forEach(b=>b.classList.toggle('active',b.dataset.a===a));
+  // the wheel filter is options-only; hide it (and clear it) for stocks/all
+  const scope=document.getElementById('opt-scope'); if(scope) scope.style.display = a==='options'?'':'none';
+  if(a!=='options'){ _optWheel=false; document.querySelectorAll('#opt-scope button').forEach(b=>b.classList.toggle('active',b.dataset.w==='all')); }
+  loadOptions(true);   // source changed — refetch this asset class
 }
 function setOptGran(g){ _optGran=g;
   document.querySelectorAll('#opt-gran button').forEach(b=>b.classList.toggle('active',b.dataset.g===g));
@@ -1446,12 +1462,17 @@ function renderOptions(){
   const openAll=_optData.open_positions||[];
   const openPos=_optWheel? openAll.filter(p=>p.role==='short_put'||p.role==='covered_call') : openAll;
   const cards=`<div id="opt-cards">${optCards()}</div>`;
-  // strategy split — wheel income (CSP / covered call) vs directional long options, never blended
+  // stock basis caveat — sales of shares bought before the history window can't be priced
+  const up=_optData.unpriced;
+  const caveat=(up&&up.sales>0)?`<div class="optcaveat">⚠ <b>${up.sales} stock ${up.sales===1?'sale':'sales'}</b> (${up.shares.toLocaleString()} shares${_priv?'':` · ${usd(up.proceeds)} proceeds`}) involved shares bought <b>before your transaction history begins</b> — their cost basis is unavailable, so they're <b>excluded</b> from realized P&L below. ${up.symbols.length?`<span class="muted">${up.symbols.join(' · ')}</span>`:''}</div>`:'';
+  // strategy split — wheel income (CSP / covered call) vs directional long options, never blended.
+  // Hidden for stocks-only (a single "Stock" bucket adds nothing over the headline number).
   const stratCards=c.by_strategy.filter(s=>s.positions).map(s=>`
     <div class="ostrat ${sgn(s.net)}"><div class="ol">${s.strategy}</div>
       <div class="ov ${sgn(s.net)}">${_priv?_MASK:usd(s.net)}</div>
       <div class="ostratsub">${s.positions} closed · ${win(s)} win</div></div>`).join('');
-  const strategy=`<div class="opanel"><h3 class="rech3">By strategy · realized on closed positions <span class="muted">· ${_optWheel?'wheel only':'wheel income vs directional long options'}</span></h3>
+  const stratNote=_optAsset==='all'?'options strategies vs stock':(_optWheel?'wheel only':'wheel income vs directional long options');
+  const strategy=_optAsset==='stocks'?'':`<div class="opanel"><h3 class="rech3">By strategy · realized on closed positions <span class="muted">· ${stratNote}</span></h3>
     <div class="ostratrow">${stratCards}</div></div>`;
   const trows=c.by_ticker.map(r=>`<tr>
     <td><b>${r.symbol}</b>${r.open?' <span class="opill">open</span>':''}</td>
@@ -1461,20 +1482,23 @@ function renderOptions(){
   const table=`<div class="opanel"><h3 class="rech3">By ticker · realized on closed positions</h3>
     <table class="otbl"><thead><tr><th>Ticker</th><th class="r">Realized</th><th class="r">Closed</th><th class="r">Win</th></tr></thead>
     <tbody>${trows}</tbody></table></div>`;
-  const roleLbl={short_put:'CSP',long_call:'LEAP/Call',covered_call:'Cov. Call',long_put:'Long Put'};
-  const oprows=openPos.map(p=>`<tr>
+  const roleLbl={short_put:'CSP',long_call:'LEAP/Call',covered_call:'Cov. Call',long_put:'Long Put',stock:'Shares'};
+  const oprows=openPos.map(p=>{
+    const isStock=p.role==='stock';
+    return `<tr>
     <td><b>${p.symbol}</b> <span class="muted">${roleLbl[p.role]||p.kind}</span></td>
     <td class="r">${p.contracts>0?'+':''}${p.contracts}</td>
-    <td class="r muted">$${p.strike}</td>
-    <td class="r muted">${p.dte}d</td>
-    <td class="r ${sgn(p.pl_open)}">${_priv?_MASK:usd(p.pl_open)}</td></tr>`).join('');
-  const opentbl=openPos.length?`<div class="opanel"><h3 class="rech3">Open positions · unrealized</h3>
+    <td class="r muted">${isStock?'—':'$'+p.strike}</td>
+    <td class="r muted">${isStock?'—':p.dte+'d'}</td>
+    <td class="r ${sgn(p.pl_open)}">${_priv?_MASK:usd(p.pl_open)}</td></tr>`;}).join('');
+  const openHdr=_optAsset==='stocks'?'Open holdings · unrealized':'Open positions · unrealized';
+  const opentbl=openPos.length?`<div class="opanel"><h3 class="rech3">${openHdr}</h3>
     <table class="otbl"><thead><tr><th>Position</th><th class="r">Qty</th><th class="r">Strike</th><th class="r">DTE</th><th class="r">Unreal.</th></tr></thead>
     <tbody>${oprows}</tbody></table></div>`:'';
   const mid = _optView==='calendar'
     ? `<div class="opanel"><h3 class="rech3">P&L calendar <span class="muted">· each day green/red by realized P&L · click a day for the positions behind it</span></h3>${optCalendar()}</div>`
     : `<div class="opanel"><h3 class="rech3">Realized P&L · ${_optGran} <span class="muted">· ${c.from||'—'} → ${c.to||'—'} · each position booked on its close date · line = cumulative</span></h3>${optChart(series)}</div>`;
-  document.getElementById('opt-body').innerHTML=cards+strategy+mid+`<div class="ogrid">${table}${opentbl}</div>`;
+  document.getElementById('opt-body').innerHTML=cards+caveat+strategy+mid+`<div class="ogrid">${table}${opentbl}</div>`;
 }
 function setOptWheel(on){ _optWheel=on;
   document.querySelectorAll('#opt-scope button').forEach(b=>b.classList.toggle('active',(b.dataset.w==='wheel')===on));
@@ -1483,6 +1507,7 @@ function setOptWheel(on){ _optWheel=on;
 document.querySelectorAll('#opt-gran button').forEach(b=>b.onclick=()=>setOptGran(b.dataset.g));
 document.querySelectorAll('#opt-view button').forEach(b=>b.onclick=()=>setOptView(b.dataset.v));
 document.querySelectorAll('#opt-scope button').forEach(b=>b.onclick=()=>setOptWheel(b.dataset.w==='wheel'));
+document.querySelectorAll('#opt-asset button').forEach(b=>b.onclick=()=>setOptAsset(b.dataset.a));
 
 // ---- privacy mode: hide/show all dollar values across every tab ----
 function updatePrivBtn(){

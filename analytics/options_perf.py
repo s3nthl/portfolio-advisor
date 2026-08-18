@@ -191,6 +191,95 @@ def _series(closed: list[dict], gran: str) -> list[dict]:
     return rows
 
 
+def aggregate_from_detail(detail: list[dict], open_positions: list[dict],
+                          as_of: str | None = None) -> dict:
+    """Build the full performance payload from already-computed closed-position
+    rows (`closed_detail` shape: d, u, s, net, opened, trades, cap, days).
+
+    This is the source-agnostic aggregator: options builds its own detail (with
+    spread pairing) via build_performance, while stocks (FIFO lot-matching) and
+    the combined "all" view feed their detail through here so every asset class
+    yields identical totals / series / by-ticker / by-strategy / ROC semantics."""
+    closed = list(detail)
+    dates = sorted(_parse(p["d"]) for p in closed if _parse(p["d"]))
+    total = round(sum(p["net"] for p in closed), 2)
+    wins = sum(1 for p in closed if p["net"] > 0)
+    unreal = round(sum(x.get("pl_open") or 0 for x in open_positions), 2)
+
+    cap_years = sum(p["cap"] * p["days"] / 365.0 for p in closed)
+    if closed and dates:
+        opens = [_parse(p["opened"]) for p in closed if _parse(p["opened"])]
+        span_days = max((dates[-1] - min(opens)).days, 1) if opens else 1
+    else:
+        span_days = 1
+    avg_capital = round(cap_years / (span_days / 365.0)) if cap_years else 0
+    roc_annual = round(total / cap_years * 100, 1) if cap_years else None
+    roc_pct = round(total / avg_capital * 100, 1) if avg_capital else None
+
+    def series(gran: str) -> list[dict]:
+        agg: dict = defaultdict(lambda: {"net": 0.0, "positions": 0, "wins": 0})
+        for p in closed:
+            d = _parse(p["d"])
+            if not d:
+                continue
+            b = agg[_bucket_key(d, gran)]
+            b["net"] += p["net"]; b["positions"] += 1
+            if p["net"] > 0:
+                b["wins"] += 1
+        rows = [{"period": k, "net": round(v["net"], 2), "positions": v["positions"],
+                 "wins": v["wins"]} for k, v in agg.items()]
+        rows.sort(key=lambda r: r["period"])
+        run = 0.0
+        for r in rows:
+            run += r["net"]; r["cumulative"] = round(run, 2)
+        return rows
+
+    strat: dict = defaultdict(lambda: {"net": 0.0, "positions": 0, "wins": 0})
+    for p in closed:
+        s = strat[p.get("s") or "?"]
+        s["net"] += p["net"]; s["positions"] += 1
+        if p["net"] > 0:
+            s["wins"] += 1
+    by_strategy = [{"strategy": k, "net": round(v["net"], 2), "positions": v["positions"],
+                    "win_rate": round(v["wins"] / v["positions"] * 100) if v["positions"] else None}
+                   for k, v in strat.items()]
+    by_strategy.sort(key=lambda r: r["net"], reverse=True)
+
+    tick: dict = defaultdict(lambda: {"net": 0.0, "positions": 0, "wins": 0, "open": False})
+    for p in closed:
+        u = tick[p["u"]]
+        u["net"] += p["net"]; u["positions"] += 1
+        if p["net"] > 0:
+            u["wins"] += 1
+    for op in open_positions:
+        sym = op.get("symbol") or op.get("underlying")
+        if sym:
+            tick[sym]["open"] = True
+    by_ticker = [{"symbol": k, "net": round(v["net"], 2), "positions": v["positions"],
+                  "win_rate": round(v["wins"] / v["positions"] * 100) if v["positions"] else None,
+                  "open": v["open"]}
+                 for k, v in tick.items() if v["positions"] or v["open"]]
+    by_ticker.sort(key=lambda r: r["net"], reverse=True)
+
+    return {
+        "status": "ok",
+        "as_of": as_of,
+        "from": dates[0].isoformat() if dates else None,
+        "to": dates[-1].isoformat() if dates else None,
+        "totals": {"realized": total, "closed_positions": len(closed),
+                   "win_rate": round(wins / len(closed) * 100) if closed else None,
+                   "avg_per_position": round(total / len(closed), 2) if closed else 0,
+                   "avg_capital": avg_capital,
+                   "roc_pct": roc_pct, "roc_annual_pct": roc_annual,
+                   "open_count": len(open_positions), "unrealized_open": unreal},
+        "by_strategy": by_strategy,
+        "series": {g: series(g) for g in ("daily", "weekly", "monthly")},
+        "by_ticker": by_ticker,
+        "closed_detail": sorted(closed, key=lambda p: p["d"]),
+        "open_positions": sorted(open_positions, key=lambda p: (p.get("pl_open") or 0)),
+    }
+
+
 def build_performance(txns: list[dict], open_positions: list[dict],
                       as_of: str | None = None) -> dict:
     positions = _positions(txns)

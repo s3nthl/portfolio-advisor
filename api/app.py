@@ -44,11 +44,13 @@ from ingest.schwab_source import (
     fetch_full_chain,
     fetch_option_transactions,
     fetch_put_chain,
+    fetch_stock_transactions,
     fetch_ytd_external_flows,
     instrument_fundamentals,
     monthly_closes,
 )
-from analytics.options_perf import build_performance
+from analytics.options_perf import aggregate_from_detail, build_performance
+from analytics.stock_perf import build_stock_performance
 from analytics.csp_selector import recommend_csps_multi
 from analytics import gex as gexmod
 from analytics.gex import compute_gex
@@ -205,27 +207,18 @@ def api_refresh(force: bool = False) -> JSONResponse:
 
 
 _OPTPERF_CACHE: dict = {"t": 0.0, "payload": None}
+_STKPERF_CACHE: dict = {"t": 0.0, "payload": None}
 _OPTPERF_TTL = 600  # trade history barely changes intraday -> cache 10 min
 
 
-@app.get("/api/options-performance")
-def api_options_performance(years: int = 3, force: bool = False) -> JSONResponse:
-    """Realized options P&L over the account's LIFETIME (Schwab's ~1yr windows
-    stitched), bucketed daily/weekly/monthly, per ticker + strategy, with ROC,
-    plus current open option positions with unrealized P&L."""
-    if config.CHAI_SOURCE != "schwab":
-        return JSONResponse({"status": "offline",
-                             "detail": "Options performance needs the live Schwab source."})
+def _options_payload(years: int, force: bool) -> dict:
+    """Realized options P&L payload (cached ~10 min). Open option positions carry
+    unrealized P&L from the live book."""
     import time as _time
     if (not force and _OPTPERF_CACHE["payload"] is not None
             and _time.time() - _OPTPERF_CACHE["t"] < _OPTPERF_TTL):
-        return JSONResponse({**_OPTPERF_CACHE["payload"], "cached": True})
-    try:
-        txns = fetch_option_transactions(years)
-    except Exception as exc:
-        return JSONResponse(status_code=502,
-                            content={"error": "txn_fetch_failed", "detail": str(exc)})
-    # current open option positions (unrealized) from the live book
+        return {**_OPTPERF_CACHE["payload"], "cached": True}
+    txns = fetch_option_transactions(years)
     open_positions, as_of = [], None
     try:
         book = load_book()
@@ -246,7 +239,82 @@ def api_options_performance(years: int = 3, force: bool = False) -> JSONResponse
         open_positions = []
     payload = build_performance(txns, open_positions, as_of=as_of)
     _OPTPERF_CACHE.update(t=_time.time(), payload=payload)
-    return JSONResponse(payload)
+    return payload
+
+
+def _stocks_payload(years: int, force: bool) -> dict:
+    """Realized stock/ETF P&L payload (cached ~10 min). FIFO lot-matched; current
+    stock holdings carry unrealized P&L from the live book."""
+    import time as _time
+    if (not force and _STKPERF_CACHE["payload"] is not None
+            and _time.time() - _STKPERF_CACHE["t"] < _OPTPERF_TTL):
+        return {**_STKPERF_CACHE["payload"], "cached": True}
+    txns = fetch_stock_transactions(years)
+    open_positions, as_of = [], None
+    try:
+        book = load_book()
+        as_of = str(book.as_of)
+        for s in book.stocks:
+            open_positions.append({
+                "symbol": s.symbol, "underlying": s.symbol, "kind": "STOCK",
+                "contracts": s.qty, "pl_open": s.pl_open,
+                "notional": s.market_value, "role": "stock",
+            })
+    except Exception:
+        open_positions = []
+    payload = build_stock_performance(txns, open_positions, as_of=as_of)
+    _STKPERF_CACHE.update(t=_time.time(), payload=payload)
+    return payload
+
+
+def _combined_payload(years: int, force: bool) -> dict:
+    """Options + stocks merged into one realized-P&L view. Detail rows and open
+    positions are concatenated and re-aggregated so totals / series / by-ticker /
+    by-strategy are consistent across both universes (stocks keep their 'Stock'
+    strategy bucket; option strategies stay split)."""
+    opt = _options_payload(years, force)
+    stk = _stocks_payload(years, force)
+    detail = list(opt.get("closed_detail", [])) + list(stk.get("closed_detail", []))
+    opens = list(opt.get("open_positions", [])) + list(stk.get("open_positions", []))
+    as_of = opt.get("as_of") or stk.get("as_of")
+    payload = aggregate_from_detail(detail, opens, as_of=as_of)
+    payload["unpriced"] = stk.get("unpriced")     # the stock-basis caveat carries through
+    return payload
+
+
+@app.get("/api/options-performance")
+def api_options_performance(years: int = 3, force: bool = False) -> JSONResponse:
+    """Realized options P&L over the account's LIFETIME (Schwab's ~1yr windows
+    stitched), bucketed daily/weekly/monthly, per ticker + strategy, with ROC,
+    plus current open option positions with unrealized P&L."""
+    if config.CHAI_SOURCE != "schwab":
+        return JSONResponse({"status": "offline",
+                             "detail": "Options performance needs the live Schwab source."})
+    try:
+        return JSONResponse(_options_payload(years, force))
+    except Exception as exc:
+        return JSONResponse(status_code=502,
+                            content={"error": "txn_fetch_failed", "detail": str(exc)})
+
+
+@app.get("/api/pnl")
+def api_pnl(asset: str = "options", years: int = 3, force: bool = False) -> JSONResponse:
+    """Realized P&L for a chosen asset class: `options` (default), `stocks`
+    (FIFO-matched equity/ETF round-trips), or `all` (both, merged). Same payload
+    shape across all three so one dashboard renders any of them."""
+    if config.CHAI_SOURCE != "schwab":
+        return JSONResponse({"status": "offline",
+                             "detail": "Realized P&L needs the live Schwab source."})
+    fn = {"options": _options_payload, "stocks": _stocks_payload,
+          "all": _combined_payload}.get(asset)
+    if fn is None:
+        return JSONResponse(status_code=400,
+                            content={"error": "bad_asset", "detail": "asset=options|stocks|all"})
+    try:
+        return JSONResponse({**fn(years, force), "asset": asset})
+    except Exception as exc:
+        return JSONResponse(status_code=502,
+                            content={"error": "txn_fetch_failed", "detail": str(exc)})
 
 
 _WATCH_CACHE: dict = {"t": 0.0, "payload": None}

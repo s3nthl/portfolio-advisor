@@ -659,6 +659,77 @@ def fetch_option_transactions(years: int = 3) -> list[dict]:
     return out
 
 
+def fetch_stock_transactions(years: int = 3) -> list[dict]:
+    """Read-only pull of EQUITY / ETF trade history (for realized stock P&L).
+
+    Same 1-year-window stitching + activityId dedupe as the option pull. Returns
+    one record per equity leg: `shares` signed (+acquire / −dispose), `price`, and
+    `net` = the leg's signed cash (a buy is negative, a sell's proceeds positive).
+    Includes assignment deliveries (a CSP-assigned share's basis is its strike) but
+    EXCLUDES the SWVXX-style money-market cash sweep (that's cash, not a trade).
+    GET only — no order endpoint.
+    """
+    client = _get_client()
+    h = _resolve_account_hash(client)
+    now = datetime.now(timezone.utc)
+    seen: set = set()
+    out: list[dict] = []
+    got_any = False
+    STOCK = {"EQUITY", "COLLECTIVE_INVESTMENT", "ETF", "MUTUAL_FUND"}
+    SWEEP = {"SWVXX", "SNVXX", "SNSXX", "SGOV"}   # money-market sweeps, not P&L trades
+    for yr in range(max(1, years)):
+        end = now - timedelta(days=365 * yr)
+        start = end - timedelta(days=365)
+        try:
+            resp = client.get_transactions(h, start_date=start, end_date=end)
+        except Exception:
+            continue
+        if resp.status_code != 200:
+            if not got_any and yr == 0:
+                raise RuntimeError(f"Schwab transactions HTTP {resp.status_code}")
+            continue
+        window = 0
+        for t in resp.json():
+            aid = t.get("activityId")
+            if aid is not None and aid in seen:
+                continue
+            legs = t.get("transferItems") or []
+            eq = [ti for ti in legs
+                  if (ti.get("instrument") or {}).get("assetType") in STOCK
+                  and ((ti.get("instrument") or {}).get("symbol") or "") not in SWEEP]
+            if not eq:
+                continue
+            if aid is not None:
+                seen.add(aid)
+            window += 1
+            for leg in eq:
+                ins = leg.get("instrument") or {}
+                try:
+                    shares = float(leg.get("amount") or 0)
+                except Exception:
+                    shares = 0.0
+                if abs(shares) < 1e-9:
+                    continue
+                try:
+                    price = float(leg.get("price") or 0)
+                except Exception:
+                    price = 0.0
+                cost = leg.get("cost")               # per-leg signed cash when present
+                net = float(cost) if cost is not None else float(t.get("netAmount") or 0)
+                out.append({
+                    "date": (t.get("tradeDate") or "")[:10],
+                    "type": t.get("type"),           # TRADE | RECEIVE_AND_DELIVER
+                    "symbol": ins.get("symbol"),
+                    "shares": shares,                # +acquire / -dispose
+                    "price": price,
+                    "net": round(net, 2),            # signed cash (buy −, sell +)
+                })
+        got_any = got_any or window > 0
+        if window == 0 and yr > 0:
+            break
+    return out
+
+
 def load_book_from_snapshot(path: Path | None = None) -> Book:
     """Degraded-mode fallback: rebuild the Book from the last raw dump."""
     src = path or RAW_DUMP_PATH
