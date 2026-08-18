@@ -320,11 +320,15 @@
   .calhdr{display:flex;align-items:center;justify-content:center;gap:16px;margin:6px 0 2px}
   .caltitle{font-family:var(--display);font-size:18px;font-weight:700;letter-spacing:-.01em}
   .calmode{display:flex;width:fit-content;margin:2px auto 14px}
-  .calmgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:9px;margin-top:6px}
-  .calmonth{min-height:68px;border-radius:11px;padding:11px 13px;display:flex;flex-direction:column;justify-content:space-between;background:var(--panel3);cursor:pointer;transition:transform .13s var(--ease),filter .13s}
+  .calmyears{display:flex;flex-direction:column;gap:16px;margin-top:6px}
+  .calmyhead{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--txt);letter-spacing:.6px;margin:0 0 8px}
+  .calmrow{display:grid;grid-template-columns:repeat(12,1fr);gap:7px}
+  .calmonth{aspect-ratio:1;border-radius:10px;padding:9px 9px;display:flex;flex-direction:column;justify-content:space-between;background:var(--panel3);cursor:pointer;transition:transform .13s var(--ease),filter .13s;overflow:hidden}
   .calmonth:hover{transform:translateY(-2px);filter:brightness(1.13)}
-  .calmlbl{font-size:11px;font-family:var(--mono);color:var(--txt);opacity:.72}
-  .calmamt{font-size:15.5px;font-weight:800;font-family:var(--mono);color:#f4f7fb;letter-spacing:-.02em}
+  .calmonth.empty{background:var(--panel);opacity:.32;cursor:default}
+  .calmonth.empty:hover{transform:none;filter:none}
+  .calmlbl{font-size:10px;font-family:var(--mono);color:var(--txt);opacity:.7}
+  .calmamt{font-size:12.5px;font-weight:800;font-family:var(--mono);color:#f4f7fb;letter-spacing:-.02em}
   .calgrid{display:flex;flex-direction:column;gap:6px;margin-top:8px}
   .calrow{display:grid;grid-template-columns:repeat(7,1fr) .8fr;gap:6px}
   .caldow{font-size:9.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);text-align:right;padding:0 7px 2px}
@@ -1265,16 +1269,26 @@ function optOpenMonth(k){ _optCalMode='days'; _optCalMonth=k; renderOptions(); o
 function optMonthsGrid(){
   const detail=_optDetail||[];
   const byM={}; detail.forEach(p=>{ const k=p.d.slice(0,7); byM[k]=(byM[k]||0)+p.net; });
-  const months=Object.keys(byM).sort();
-  if(!months.length) return '<div class="ccmsg">No closed positions yet.</div>';
+  const keys=Object.keys(byM);
+  if(!keys.length) return '<div class="ccmsg">No closed positions yet.</div>';
+  const years=[...new Set(keys.map(k=>k.slice(0,4)))].sort();
   const maxAbs=Math.max(1,...Object.values(byM).map(v=>Math.abs(v)));
-  const cells=months.map(k=>{
-    const v=byM[k], [y,m]=k.split('-'), a=0.14+0.5*(Math.abs(v)/maxAbs);
-    const bg=v>=0?`rgba(64,196,106,${a.toFixed(2)})`:`rgba(242,105,95,${a.toFixed(2)})`;
-    return `<div class="calmonth" style="background:${bg}" onclick="optOpenMonth('${k}')" title="open ${_MON3[+m-1]} ${y} — click into its days">
-      <span class="calmlbl">${_MON3[+m-1]} '${y.slice(2)}</span><span class="calmamt ${v>=0?'pos':'neg'}">${optAmt(v)}</span></div>`;
+  const rows=years.map(y=>{
+    let yTot=0;
+    const cells=[];
+    for(let m=1;m<=12;m++){
+      const k=`${y}-${String(m).padStart(2,'0')}`, v=byM[k];
+      if(v==null){ cells.push(`<div class="calmonth empty"><span class="calmlbl">${_MON3[m-1]}</span></div>`); continue; }
+      yTot+=v;
+      const a=0.14+0.5*(Math.abs(v)/maxAbs);
+      const bg=v>=0?`rgba(64,196,106,${a.toFixed(2)})`:`rgba(242,105,95,${a.toFixed(2)})`;
+      cells.push(`<div class="calmonth" style="background:${bg}" onclick="optOpenMonth('${k}')" title="open ${_MON3[m-1]} ${y} — click into its days">
+        <span class="calmlbl">${_MON3[m-1]}</span><span class="calmamt ${v>=0?'pos':'neg'}">${optAmt(v)}</span></div>`);
+    }
+    return `<div class="calmyear"><div class="calmyhead">${y}<span class="${yTot>=0?'pos':'neg'}"> · ${_priv?_MASK:usd(yTot)}</span></div>
+      <div class="calmrow">${cells.join('')}</div></div>`;
   }).join('');
-  return `<div class="calmgrid">${cells}</div>
+  return `<div class="calmyears">${rows}</div>
     <div class="caldetail"><span class="muted">Each cell = a month's realized P&L · click one to drill into its days.</span></div>`;
 }
 function optCalendar(){
