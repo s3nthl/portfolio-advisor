@@ -320,15 +320,16 @@
   .calhdr{display:flex;align-items:center;justify-content:center;gap:16px;margin:6px 0 2px}
   .caltitle{font-family:var(--display);font-size:18px;font-weight:700;letter-spacing:-.01em}
   .calmode{display:flex;width:fit-content;margin:2px auto 14px}
-  .calmyears{display:flex;flex-direction:column;gap:16px;margin-top:6px}
-  .calmyhead{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--txt);letter-spacing:.6px;margin:0 0 8px}
-  .calmrow{display:grid;grid-template-columns:repeat(12,1fr);gap:7px}
-  .calmonth{aspect-ratio:1;border-radius:10px;padding:9px 9px;display:flex;flex-direction:column;justify-content:space-between;background:var(--panel3);cursor:pointer;transition:transform .13s var(--ease),filter .13s;overflow:hidden}
-  .calmonth:hover{transform:translateY(-2px);filter:brightness(1.13)}
-  .calmonth.empty{background:var(--panel);opacity:.32;cursor:default}
+  .calmyears{display:flex;flex-direction:column;gap:15px;margin-top:6px}
+  .calmyhead{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--txt);letter-spacing:.6px;margin:0 0 7px}
+  .calmrow{display:grid;grid-template-columns:repeat(12,1fr);gap:7px;max-width:860px}
+  .calmonth{aspect-ratio:1;border-radius:12px;padding:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-align:center;background:var(--panel3);cursor:pointer;transition:transform .13s var(--ease),filter .13s;overflow:hidden}
+  .calmonth:hover{transform:translateY(-2px) scale(1.04);filter:brightness(1.13)}
+  .calmonth.empty{background:var(--panel);opacity:.5;cursor:default}
   .calmonth.empty:hover{transform:none;filter:none}
-  .calmlbl{font-size:10px;font-family:var(--mono);color:var(--txt);opacity:.7}
-  .calmamt{font-size:12.5px;font-weight:800;font-family:var(--mono);color:#f4f7fb;letter-spacing:-.02em}
+  .calmlbl{font-size:9.5px;font-family:var(--mono);color:var(--txt);opacity:.68}
+  .calmamt{font-size:11.5px;font-weight:800;font-family:var(--mono);color:#f4f7fb;letter-spacing:-.02em}
+  .calmnil{font-size:12px;color:var(--dim)}
   .calgrid{display:flex;flex-direction:column;gap:6px;margin-top:8px}
   .calrow{display:grid;grid-template-columns:repeat(7,1fr) .8fr;gap:6px}
   .caldow{font-size:9.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);text-align:right;padding:0 7px 2px}
@@ -1278,7 +1279,7 @@ function optMonthsGrid(){
     const cells=[];
     for(let m=1;m<=12;m++){
       const k=`${y}-${String(m).padStart(2,'0')}`, v=byM[k];
-      if(v==null){ cells.push(`<div class="calmonth empty"><span class="calmlbl">${_MON3[m-1]}</span></div>`); continue; }
+      if(v==null){ cells.push(`<div class="calmonth empty" title="${_MON3[m-1]} ${y} — no option trades"><span class="calmlbl">${_MON3[m-1]}</span><span class="calmnil">–</span></div>`); continue; }
       yTot+=v;
       const a=0.14+0.5*(Math.abs(v)/maxAbs);
       const bg=v>=0?`rgba(64,196,106,${a.toFixed(2)})`:`rgba(242,105,95,${a.toFixed(2)})`;
